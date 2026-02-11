@@ -11,3 +11,8 @@ gtest_discover_tests(test_order)
 add_executable(test_memory_pool test_memory_pool.cpp)
 target_link_libraries(test_memory_pool PRIVATE hft_orderbook GTest::gtest_main)
 gtest_discover_tests(test_memory_pool)
+
+# test_order_book — verifies order book, flat hash map, add/cancel/best bid/ask
+add_executable(test_order_book test_order_book.cpp)
+target_link_libraries(test_order_book PRIVATE hft_orderbook GTest::gtest_main)
+gtest_discover_tests(test_order_book)

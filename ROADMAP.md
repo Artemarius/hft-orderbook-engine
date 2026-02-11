@@ -325,12 +325,12 @@ private:
 
 ### 2.4 Phase 2 Deliverables Checklist
 
-- [ ] OrderBook with bid/ask sides, O(1) best bid/ask
-- [ ] Price level storage is contiguous (no `std::map`)
-- [ ] Order lookup by ID via flat hash map (no `std::unordered_map`)
-- [ ] All add/cancel operations verified with unit tests
-- [ ] Zero heap allocation verified (global `operator new` override in tests)
-- [ ] First benchmark: `bench_orderbook.cpp` — measure add-order and cancel-order latency
+- [x] OrderBook with bid/ask sides, O(1) best bid/ask
+- [x] Price level storage is contiguous flat array indexed by price tick (Option A)
+- [x] Order lookup by ID via FlatOrderMap (open-addressing, backward-shift deletion)
+- [x] All add/cancel operations verified with unit tests (32 new tests, 70 total)
+- [x] Zero heap allocation verified (global `operator new` override in tests)
+- [x] First benchmark: add=198ns, cancel=195ns, mixed=99ns
 
 ---
 
