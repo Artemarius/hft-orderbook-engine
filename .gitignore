@@ -44,12 +44,20 @@
 build/
 cmake-build-*/
 external/
+_deps/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *~
+
+# Data downloads (large files, not checked in)
+data/*.csv
+!data/btcusdt_l3_sample.csv
+
+# Temporary
+tmp/
 
 # Private project planning (not for public)
 PROJECT.md

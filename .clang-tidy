@@ -1,0 +1,23 @@
+---
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-use-nodiscard,
+  modernize-use-auto,
+  modernize-loop-convert,
+  readability-const-return-type,
+  cppcoreguidelines-init-variables,
+  misc-unused-parameters,
+  -bugprone-easily-swappable-parameters
+
+WarningsAsErrors: ''
+
+HeaderFilterRegex: 'src/.*'
+
+CheckOptions:
+  - key: performance-move-const-arg.CheckTriviallyCopyableMove
+    value: false
+...
