@@ -3,8 +3,7 @@
 # Hot-path libraries (Phase 0+):
 add_subdirectory(core)
 
-# Uncomment as each phase is implemented:
-# add_subdirectory(orderbook)    # Phase 2
+add_subdirectory(orderbook)      # Phase 1: memory pool; Phase 2: order book
 # add_subdirectory(matching)     # Phase 3
 # add_subdirectory(transport)    # Phase 4
 # add_subdirectory(gateway)      # Phase 5

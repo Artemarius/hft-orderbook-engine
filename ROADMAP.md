@@ -257,12 +257,12 @@ Slab allocator for Order objects:
 
 ### 1.4 Phase 1 Deliverables Checklist
 
-- [ ] All core types defined with `static_assert` guards
-- [ ] Price is fixed-point `int64_t`, not floating point
-- [ ] Order struct is ≤ 128 bytes, trivially copyable
-- [ ] Memory pool allocates/deallocates in O(1) with zero heap allocation
-- [ ] Tests pass: POD verification, alloc/dealloc correctness, pool exhaustion
-- [ ] No STL containers, no `std::string`, no virtual functions in any hot-path code
+- [x] All core types defined with `static_assert` guards
+- [x] Price is fixed-point `int64_t`, not floating point
+- [x] Order struct is ≤ 128 bytes (72 bytes actual), trivially copyable
+- [x] Memory pool allocates/deallocates in O(1) with zero heap allocation
+- [x] Tests pass: POD verification, alloc/dealloc correctness, pool exhaustion (38 tests)
+- [x] No STL containers, no `std::string`, no virtual functions in any hot-path code
 
 ---
 
