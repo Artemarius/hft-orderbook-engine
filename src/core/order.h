@@ -24,6 +24,7 @@ struct Order {
     Price price;
     Quantity quantity;
     Quantity visible_quantity;   // Iceberg: displayed quantity
+    Quantity iceberg_slice_qty;  // Iceberg: original display slice size (for replenishment)
     Quantity filled_quantity;
     Timestamp timestamp;
     Order* next;                // Intrusive list: next order in price level

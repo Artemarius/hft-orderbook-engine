@@ -74,9 +74,9 @@ TEST(OrderTest, FitsInTwoCacheLines) {
 
 TEST(OrderTest, FieldLayout) {
     // Verify there's no unexpected padding blowing up the size.
-    // 8 + 4 + 1 + 1 + 1 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 = 72
-    // Actual size may include tail padding for alignment, but should be ≤ 80.
-    EXPECT_LE(sizeof(Order), 80u);
+    // 8 + 4 + 1 + 1 + 1 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 = 80
+    // Includes iceberg_slice_qty field. Actual size may include tail padding.
+    EXPECT_LE(sizeof(Order), 88u);
 }
 
 TEST(OrderTest, MemcpySafe) {

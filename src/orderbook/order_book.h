@@ -81,12 +81,18 @@ public:
     [[nodiscard]] Price tick_size() const noexcept { return tick_size_; }
     [[nodiscard]] size_t num_levels() const noexcept { return num_levels_; }
 
+    /// Check if a price is within range and tick-aligned.
+    [[nodiscard]] bool is_valid_price(Price price) const noexcept;
+
+    /// Total quantity available on `side` at prices that would cross `limit_price`.
+    /// Used by FOK feasibility check. Read-only walk of the flat price array.
+    [[nodiscard]] Quantity available_quantity(Side side, Price limit_price) const noexcept;
+
 private:
     static constexpr size_t INVALID_INDEX = SIZE_MAX;
 
     [[nodiscard]] size_t price_to_index(Price price) const noexcept;
     [[nodiscard]] Price index_to_price(size_t index) const noexcept;
-    [[nodiscard]] bool is_valid_price(Price price) const noexcept;
 
     void update_best_bid_after_remove(size_t emptied_idx) noexcept;
     void update_best_ask_after_remove(size_t emptied_idx) noexcept;

@@ -2,3 +2,6 @@
 
 add_executable(bench_orderbook bench_orderbook.cpp)
 target_link_libraries(bench_orderbook PRIVATE hft_orderbook benchmark::benchmark_main)
+
+add_executable(bench_matching bench_matching.cpp)
+target_link_libraries(bench_matching PRIVATE hft_matching benchmark::benchmark_main)

@@ -164,6 +164,35 @@ bool OrderBook::is_valid_price(Price price) const noexcept {
 }
 
 // ---------------------------------------------------------------------------
+// FOK feasibility
+// ---------------------------------------------------------------------------
+
+Quantity OrderBook::available_quantity(Side side, Price limit_price) const noexcept {
+    Quantity total = 0;
+
+    if (side == Side::Sell) {
+        // Buying: walk ask levels from best_ask upward to limit_price
+        if (best_ask_idx_ == INVALID_INDEX) return 0;
+        size_t max_idx = price_to_index(
+            (limit_price > max_price_) ? max_price_ : limit_price);
+        for (size_t i = best_ask_idx_; i <= max_idx && i < num_levels_; ++i) {
+            total += ask_levels_[i].total_quantity;
+        }
+    } else {
+        // Selling: walk bid levels from best_bid downward to limit_price
+        if (best_bid_idx_ == INVALID_INDEX) return 0;
+        size_t min_idx = price_to_index(
+            (limit_price < min_price_) ? min_price_ : limit_price);
+        for (size_t i = best_bid_idx_;; --i) {
+            total += bid_levels_[i].total_quantity;
+            if (i == min_idx || i == 0) break;
+        }
+    }
+
+    return total;
+}
+
+// ---------------------------------------------------------------------------
 // Best bid/ask maintenance
 // ---------------------------------------------------------------------------
 

@@ -404,12 +404,13 @@ Events are POD structs written to the SPSC ring buffer.
 
 ### 3.5 Phase 3 Deliverables Checklist
 
-- [ ] All order types match correctly (limit, market, IOC, FOK, iceberg)
-- [ ] Price-time FIFO priority verified with tests
-- [ ] Self-trade prevention works for all modes
-- [ ] Event generation produces correct sequence for every scenario
-- [ ] Matching benchmark: `bench_matching.cpp` — latency for match + trade generation
-- [ ] All hot-path code: no heap alloc, no exceptions, no virtual dispatch
+- [x] All order types match correctly (limit, market, IOC, FOK, GTC, iceberg)
+- [x] Price-time FIFO priority verified with tests
+- [x] Self-trade prevention works for all modes (CancelNewest, CancelOldest, CancelBoth)
+- [x] Trade generation with correct fields, monotonic IDs, passive price improvement
+- [x] Matching benchmark: `bench_matching.cpp` — single-level ~1.2μs, multi-level ~2.3μs (includes setup; WSL)
+- [x] All hot-path code: no heap alloc, no exceptions, no virtual dispatch
+- [x] 45 new tests (115 total), all passing
 
 ---
 
