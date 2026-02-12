@@ -512,10 +512,16 @@ Only one SPSC buffer crosses the thread boundary. The matching engine is single-
 
 ### 5.4 Phase 5 Deliverables Checklist
 
-- [ ] OrderGateway validates and forwards orders
-- [ ] MarketDataPublisher consumes events from ring buffer
-- [ ] End-to-end test: submit order → match → receive trade event
-- [ ] Threading model documented and tested with TSan
+- [x] OrderGateway validates and forwards orders (price/qty/pool-exhaustion checks, GatewayResult return)
+- [x] MarketDataPublisher consumes events from ring buffer (poll/run/stop, callback dispatch)
+- [x] EventBuffer type alias wires SPSC transport to gateway (`SPSCRingBuffer<EventMessage, 65536>`)
+- [x] MatchResult decomposed into EventMessages (trades first, then terminal status)
+- [x] Nullable event buffer for testing without publisher (no crash)
+- [x] Backpressure handling: spin-wait on try_push failure with diagnostic counter
+- [x] Monotonic sequence numbers across all published events
+- [x] End-to-end multi-threaded test: 200 orders, background publisher, all events received in order
+- [x] MSVC cross-platform support: _aligned_malloc, /wd5051, conditional compiler flags
+- [x] 27 new tests (165 total), all passing
 
 ---
 

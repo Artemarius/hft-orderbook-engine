@@ -18,6 +18,10 @@
 #include <new>
 #include <type_traits>
 
+#ifdef _MSC_VER
+#include <malloc.h>
+#endif
+
 namespace hft {
 
 template <typename T>
@@ -37,8 +41,13 @@ public:
           allocated_count_(0),
           high_water_mark_(0) {
         // Single contiguous allocation, cache-line aligned
+#ifdef _MSC_VER
+        storage_ = static_cast<char*>(
+            _aligned_malloc(capacity * sizeof(T), alignof(T)));
+#else
         storage_ = static_cast<char*>(
             std::aligned_alloc(alignof(T), capacity * sizeof(T)));
+#endif
         if (!storage_) {
             std::abort();  // Startup failure — no recovery
         }
@@ -51,7 +60,11 @@ public:
         }
     }
 
+#ifdef _MSC_VER
+    ~MemoryPool() { _aligned_free(storage_); }
+#else
     ~MemoryPool() { std::free(storage_); }
+#endif
 
     // Non-copyable, non-movable — owns the backing memory.
     MemoryPool(const MemoryPool&) = delete;

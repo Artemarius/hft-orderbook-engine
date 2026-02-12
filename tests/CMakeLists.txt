@@ -26,3 +26,8 @@ gtest_discover_tests(test_matching_engine)
 add_executable(test_spsc_ring_buffer test_spsc_ring_buffer.cpp)
 target_link_libraries(test_spsc_ring_buffer PRIVATE hft_transport GTest::gtest_main)
 gtest_discover_tests(test_spsc_ring_buffer)
+
+# test_gateway — verifies order gateway, market data publisher, event pipeline
+add_executable(test_gateway test_gateway.cpp)
+target_link_libraries(test_gateway PRIVATE hft_gateway GTest::gtest_main)
+gtest_discover_tests(test_gateway)
