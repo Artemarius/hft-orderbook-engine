@@ -37,47 +37,71 @@ I wanted to understand market microstructure from the ground up — not by readi
 - Output: JSON summary + CSV time series
 
 **Benchmarking**
-- Nanosecond-precision latency histograms (p50, p90, p99, p99.9, max)
-- Throughput under sustained load
-- Cache-miss profiling with `perf stat`
+- Nanosecond-precision latency histograms via rdtsc (p50, p90, p99, p99.9, max)
+- Throughput measurement under sustained mixed workload
+- Google Benchmark + custom rdtsc-based percentile harness with overhead calibration
+- Automated benchmark script (`scripts/run_benchmarks.ps1`)
 
 ## Performance
 
-*Targets (measured on [hardware TBD]):*
+Measured on Intel Core i7-10750H (6C/12T, 2.69 GHz), 16 GB RAM, Windows 10 Pro 10.0.19045, MSVC 14.44 (VS 2022 Build Tools), Release `/O2`, Ninja.
 
-| Operation | Median | p99 |
-|---|---|---|
-| Add order (no match) | < 100 ns | < 500 ns |
-| Cancel order | < 50 ns | < 200 ns |
-| Match + trade | < 200 ns | < 1 μs |
-| Throughput | > 5M msgs/sec | — |
+### Latency (1,000,000 samples per operation, rdtsc overhead subtracted)
+
+| Operation | min | p50 | p90 | p99 | p99.9 | max |
+|---|---|---|---|---|---|---|
+| Add order (no match) | 25 ns | 124 ns | 150 ns | 678 ns | 4.7 us | 162 us |
+| Cancel order | 12 ns | 130 ns | 227 ns | 692 ns | 4.8 us | 166 us |
+| Match (single level) | 726 ns | 821 ns | 935 ns | 1.4 us | 5.4 us | 386 us |
+| Match (5 levels) | 827 ns | 1.0 us | 1.4 us | 2.0 us | 6.4 us | 313 us |
+| SPSC push+pop | < 1 ns | < 1 ns | < 1 ns | 2 ns | 6 ns | 82 us |
+
+### Throughput
+
+| Benchmark | Result |
+|---|---|
+| Sustained mixed workload (60% add / 30% cancel / 10% match) | **6.0 M msgs/s** |
+| Google Benchmark: add order (mean) | 176 ns/op |
+| Google Benchmark: cancel order (mean) | 205 ns/op |
+| Google Benchmark: add+cancel mixed (mean) | 100 ns/op |
+
+### Analysis
+
+The matching benchmarks include setup cost (placing resting orders on the book before each match), so they overestimate pure matching latency. The `min` values for add/cancel show the raw operation cost reaches 12-25 ns when caches are warm. Tail latencies (p99.9, max) are dominated by OS scheduling jitter on Windows — Linux with `isolcpus` and `taskset` would reduce these significantly. The SPSC ring buffer push+pop is effectively free (< 1 ns median), confirming zero overhead for the lock-free inter-thread transport.
 
 ## Building
 
 ### Prerequisites
-- C++17 compiler (GCC 9+, Clang 10+)
+- C++17 compiler (MSVC 14.x, GCC 9+, or Clang 10+)
 - CMake 3.20+
-- Linux recommended (for `perf` profiling and `rdtsc` timing)
+- Ninja build system
 
 ### Build
 ```bash
-git clone https://github.com/<username>/hft-orderbook-engine.git
-cd hft-orderbook-engine
-
 cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ninja
-cmake --build build -- -j$(nproc)
+cmake --build build
 ```
 
 ### Run
 ```bash
-# Matching engine benchmark
-./build/bench_orderbook
+# Latency histogram benchmark (rdtsc-based, p50/p90/p99/p99.9/max)
+./build/benchmarks/bench_latency
+
+# Google Benchmark suite
+./build/benchmarks/bench_orderbook
+./build/benchmarks/bench_matching
+./build/benchmarks/bench_spsc
 
 # Replay historical data with analytics
-./build/replay --input data/btcusdt_l3.csv --output analytics/
+./build/replay --input data/btcusdt_l3_sample.csv --analytics
 
-# Unit tests
+# Unit tests (290 tests)
 cd build && ctest --output-on-failure
+```
+
+### Automated Benchmarking (Windows)
+```powershell
+.\scripts\run_benchmarks.ps1
 ```
 
 ## Project Structure

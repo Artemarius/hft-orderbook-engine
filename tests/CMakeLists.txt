@@ -41,3 +41,8 @@ gtest_discover_tests(test_l3_replay)
 add_executable(test_analytics test_analytics.cpp)
 target_link_libraries(test_analytics PRIVATE hft_analytics hft_feed GTest::gtest_main)
 gtest_discover_tests(test_analytics)
+
+# test_utils — verifies clock.h and latency_histogram.h utilities
+add_executable(test_utils test_utils.cpp)
+target_link_libraries(test_utils PRIVATE hft_utils GTest::gtest_main)
+gtest_discover_tests(test_utils)

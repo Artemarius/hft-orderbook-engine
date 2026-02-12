@@ -11,4 +11,4 @@ add_subdirectory(gateway)        # Phase 5
 # Cold-path libraries:
 add_subdirectory(feed)           # Phase 6
 add_subdirectory(analytics)     # Phase 7
-# add_subdirectory(utils)        # Phase 1+
+add_subdirectory(utils)          # Phase 8: clock, latency histogram
