@@ -628,6 +628,158 @@ TEST_F(MatchingEngineTest, TotalTradeCount) {
 }
 
 // ---------------------------------------------------------------------------
+// Order Modify
+// ---------------------------------------------------------------------------
+
+TEST_F(MatchingEngineTest, ModifyPriceNoMatch) {
+    // Rest a buy at MID
+    rest_order(alloc_order(1, Side::Buy, OrderType::Limit, MID, 100));
+    // Rest a sell far away
+    rest_order(alloc_order(2, Side::Sell, OrderType::Limit, MID + 100 * TICK, 100));
+
+    // Modify buy price up (but not crossing)
+    auto result = engine_->modify_order(1, MID + 5 * TICK, 100, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Modified);
+    EXPECT_EQ(result.trade_count, 0u);
+    EXPECT_EQ(result.remaining_quantity, 100u);
+    EXPECT_EQ(book_->order_count(), 2u);
+    EXPECT_EQ(book_->best_bid()->price, MID + 5 * TICK);
+}
+
+TEST_F(MatchingEngineTest, ModifyPriceCrossesMatch) {
+    // Rest a buy at MID
+    rest_order(alloc_order(1, Side::Buy, OrderType::Limit, MID, 100));
+    // Rest a sell at MID + 2 ticks
+    rest_order(alloc_order(2, Side::Sell, OrderType::Limit, MID + 2 * TICK, 100));
+
+    // Modify buy price to cross the sell
+    auto result = engine_->modify_order(1, MID + 2 * TICK, 100, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Filled);
+    EXPECT_EQ(result.trade_count, 1u);
+    EXPECT_EQ(result.filled_quantity, 100u);
+    EXPECT_TRUE(book_->empty());
+}
+
+TEST_F(MatchingEngineTest, ModifyQuantityIncrease) {
+    rest_order(alloc_order(1, Side::Buy, OrderType::Limit, MID, 100));
+
+    auto result = engine_->modify_order(1, MID, 200, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Modified);
+    EXPECT_EQ(result.remaining_quantity, 200u);
+    // Order should be on book with new quantity
+    auto* o = book_->find_order(1);
+    ASSERT_NE(o, nullptr);
+    EXPECT_EQ(o->quantity, 200u);
+}
+
+TEST_F(MatchingEngineTest, ModifyQuantityDecreaseValid) {
+    rest_order(alloc_order(1, Side::Buy, OrderType::Limit, MID, 100));
+
+    auto result = engine_->modify_order(1, MID, 50, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Modified);
+    EXPECT_EQ(result.remaining_quantity, 50u);
+}
+
+TEST_F(MatchingEngineTest, ModifyQuantityDecreaseBelowFilled) {
+    // Rest an order, partially fill it
+    rest_order(alloc_order(1, Side::Sell, OrderType::Limit, MID, 100));
+    auto fill = engine_->submit_order(
+        alloc_order(10, Side::Buy, OrderType::Limit, MID, 30));
+    EXPECT_EQ(fill.status, MatchStatus::Filled);
+    // Order 1 now has filled_quantity=30, remaining=70
+
+    // Try to modify quantity to 30 (= filled) — should be rejected
+    auto result = engine_->modify_order(1, MID, 30, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Rejected);
+    // Order should still be on book unchanged
+    EXPECT_EQ(book_->order_count(), 1u);
+}
+
+TEST_F(MatchingEngineTest, ModifyLosesTimePriority) {
+    // Two sells at same price — order 1 first, order 2 second
+    rest_order(alloc_order(1, Side::Sell, OrderType::Limit, MID, 100));
+    rest_order(alloc_order(2, Side::Sell, OrderType::Limit, MID, 100));
+
+    // Modify order 1 — it should go to the back of the queue
+    auto result = engine_->modify_order(1, MID, 100, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Modified);
+
+    // Buy 100 — should match order 2 first (order 1 lost priority)
+    auto buy_result = engine_->submit_order(
+        alloc_order(10, Side::Buy, OrderType::Limit, MID, 100));
+    EXPECT_EQ(buy_result.status, MatchStatus::Filled);
+    ASSERT_EQ(buy_result.trade_count, 1u);
+    EXPECT_EQ(buy_result.trades[0].sell_order_id, 2u);
+}
+
+TEST_F(MatchingEngineTest, ModifyNonExistent) {
+    auto result = engine_->modify_order(999, MID, 100, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Rejected);
+    EXPECT_EQ(result.trade_count, 0u);
+}
+
+TEST_F(MatchingEngineTest, ModifyFilledOrder) {
+    // Submit and fill an order
+    rest_order(alloc_order(1, Side::Sell, OrderType::Limit, MID, 100));
+    (void)engine_->submit_order(
+        alloc_order(2, Side::Buy, OrderType::Limit, MID, 100));
+    // Order 1 is fully filled and deallocated
+
+    auto result = engine_->modify_order(1, MID, 100, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Rejected);
+}
+
+TEST_F(MatchingEngineTest, ModifyCancelledOrder) {
+    rest_order(alloc_order(1, Side::Buy, OrderType::Limit, MID, 100));
+    (void)engine_->cancel_order(1);
+
+    auto result = engine_->modify_order(1, MID, 100, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Rejected);
+}
+
+TEST_F(MatchingEngineTest, ModifyInvalidPrice) {
+    rest_order(alloc_order(1, Side::Buy, OrderType::Limit, MID, 100));
+
+    // Non-tick-aligned price
+    auto result = engine_->modify_order(1, MID + 1, 100, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Rejected);
+    // Order should remain on book unchanged
+    EXPECT_EQ(book_->order_count(), 1u);
+}
+
+TEST_F(MatchingEngineTest, ModifyIcebergOrder) {
+    // Iceberg: total 500, visible 100
+    Order* iceberg = alloc_iceberg(1, Side::Sell, MID, 500, 100);
+    rest_order(iceberg);
+
+    // Modify to new quantity (still iceberg)
+    auto result = engine_->modify_order(1, MID, 600, 1000);
+    EXPECT_EQ(result.status, MatchStatus::Modified);
+    auto* o = book_->find_order(1);
+    ASSERT_NE(o, nullptr);
+    EXPECT_EQ(o->quantity, 600u);
+    EXPECT_EQ(o->type, OrderType::Iceberg);
+}
+
+TEST_F(MatchingEngineTest, ModifyCrossingPartialFill) {
+    // Rest a sell at MID + TICK with qty 50
+    rest_order(alloc_order(2, Side::Sell, OrderType::Limit, MID + TICK, 50));
+
+    // Rest a buy at MID with qty 100
+    rest_order(alloc_order(1, Side::Buy, OrderType::Limit, MID, 100));
+
+    // Modify buy price to cross the sell — partial fill
+    auto result = engine_->modify_order(1, MID + TICK, 100, 1000);
+    EXPECT_EQ(result.status, MatchStatus::PartialFill);
+    EXPECT_EQ(result.trade_count, 1u);
+    EXPECT_EQ(result.filled_quantity, 50u);
+    EXPECT_EQ(result.remaining_quantity, 50u);
+    // Buy should rest with 50 remaining
+    EXPECT_EQ(book_->order_count(), 1u);
+    EXPECT_NE(book_->best_bid(), nullptr);
+}
+
+// ---------------------------------------------------------------------------
 // GTC order type — same as Limit, rests on book
 // ---------------------------------------------------------------------------
 

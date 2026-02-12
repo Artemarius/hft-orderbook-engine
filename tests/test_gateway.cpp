@@ -421,6 +421,139 @@ TEST_F(GatewayTest, IOCPartialFillPublishesTradeAndOrderCancelled) {
 }
 
 // ===========================================================================
+// Modify tests
+// ===========================================================================
+
+TEST_F(GatewayTest, ModifySuccess) {
+    // Place a resting buy
+    auto msg = make_order_msg(1, Side::Buy, OrderType::Limit,
+                              100 * PRICE_SCALE, 10);
+    (void)gateway->process_order(msg);
+    drain_events(*buffer);
+    EXPECT_EQ(book->order_count(), 1u);
+
+    // Modify its price
+    OrderMessage modify_msg{};
+    modify_msg.type = MessageType::Modify;
+    modify_msg.order.order_id = 1;
+    modify_msg.order.price = 99 * PRICE_SCALE;
+    modify_msg.order.quantity = 10;
+    modify_msg.order.timestamp = 2000;
+
+    auto result = gateway->process_modify(modify_msg);
+    EXPECT_TRUE(result.accepted);
+    EXPECT_EQ(result.match_status, MatchStatus::Modified);
+    EXPECT_EQ(result.trade_count, 0u);
+    EXPECT_EQ(book->order_count(), 1u);
+    EXPECT_EQ(book->best_bid()->price, 99 * PRICE_SCALE);
+}
+
+TEST_F(GatewayTest, ModifyNotFound) {
+    OrderMessage modify_msg{};
+    modify_msg.type = MessageType::Modify;
+    modify_msg.order.order_id = 999;
+    modify_msg.order.price = 100 * PRICE_SCALE;
+    modify_msg.order.quantity = 10;
+    modify_msg.order.timestamp = 2000;
+
+    auto result = gateway->process_modify(modify_msg);
+    EXPECT_FALSE(result.accepted);
+    EXPECT_EQ(result.reject_reason, GatewayRejectReason::OrderNotFound);
+}
+
+TEST_F(GatewayTest, ModifyPublishesEvents) {
+    // Place and drain
+    auto msg = make_order_msg(1, Side::Buy, OrderType::Limit,
+                              100 * PRICE_SCALE, 10);
+    (void)gateway->process_order(msg);
+    drain_events(*buffer);
+
+    // Modify
+    OrderMessage modify_msg{};
+    modify_msg.type = MessageType::Modify;
+    modify_msg.order.order_id = 1;
+    modify_msg.order.price = 99 * PRICE_SCALE;
+    modify_msg.order.quantity = 10;
+    modify_msg.order.timestamp = 2000;
+    (void)gateway->process_modify(modify_msg);
+
+    auto events = drain_events(*buffer);
+    ASSERT_GE(events.size(), 1u);
+    EXPECT_EQ(events.back().type, EventType::OrderModified);
+    EXPECT_EQ(events.back().data.order_event.order_id, 1u);
+}
+
+TEST_F(GatewayTest, ModifyCrossing) {
+    // Place a sell at 100 (participant 1)
+    auto sell = make_order_msg(1, Side::Sell, OrderType::Limit,
+                               100 * PRICE_SCALE, 10, /*participant=*/1);
+    (void)gateway->process_order(sell);
+
+    // Place a buy at 99 (participant 2)
+    auto buy = make_order_msg(2, Side::Buy, OrderType::Limit,
+                              99 * PRICE_SCALE, 10, /*participant=*/2);
+    (void)gateway->process_order(buy);
+    drain_events(*buffer);
+
+    // Modify buy price to cross the sell
+    OrderMessage modify_msg{};
+    modify_msg.type = MessageType::Modify;
+    modify_msg.order.order_id = 2;
+    modify_msg.order.price = 100 * PRICE_SCALE;
+    modify_msg.order.quantity = 10;
+    modify_msg.order.timestamp = 3000;
+
+    auto result = gateway->process_modify(modify_msg);
+    EXPECT_TRUE(result.accepted);
+    EXPECT_EQ(result.match_status, MatchStatus::Filled);
+    EXPECT_EQ(result.trade_count, 1u);
+    EXPECT_EQ(result.filled_quantity, 10u);
+    EXPECT_TRUE(book->empty());
+
+    auto events = drain_events(*buffer);
+    // Should have Trade + OrderFilled
+    ASSERT_EQ(events.size(), 2u);
+    EXPECT_EQ(events[0].type, EventType::Trade);
+    EXPECT_EQ(events[1].type, EventType::OrderFilled);
+}
+
+TEST_F(GatewayTest, ModifyRejectZeroQuantity) {
+    auto msg = make_order_msg(1, Side::Buy, OrderType::Limit,
+                              100 * PRICE_SCALE, 10);
+    (void)gateway->process_order(msg);
+    drain_events(*buffer);
+
+    OrderMessage modify_msg{};
+    modify_msg.type = MessageType::Modify;
+    modify_msg.order.order_id = 1;
+    modify_msg.order.price = 100 * PRICE_SCALE;
+    modify_msg.order.quantity = 0;
+    modify_msg.order.timestamp = 2000;
+
+    auto result = gateway->process_modify(modify_msg);
+    EXPECT_FALSE(result.accepted);
+    EXPECT_EQ(result.reject_reason, GatewayRejectReason::InvalidQuantity);
+}
+
+TEST_F(GatewayTest, ModifyRejectZeroPrice) {
+    auto msg = make_order_msg(1, Side::Buy, OrderType::Limit,
+                              100 * PRICE_SCALE, 10);
+    (void)gateway->process_order(msg);
+    drain_events(*buffer);
+
+    OrderMessage modify_msg{};
+    modify_msg.type = MessageType::Modify;
+    modify_msg.order.order_id = 1;
+    modify_msg.order.price = 0;
+    modify_msg.order.quantity = 10;
+    modify_msg.order.timestamp = 2000;
+
+    auto result = gateway->process_modify(modify_msg);
+    EXPECT_FALSE(result.accepted);
+    EXPECT_EQ(result.reject_reason, GatewayRejectReason::InvalidPrice);
+}
+
+// ===========================================================================
 // MarketDataPublisher tests
 // ===========================================================================
 

@@ -40,8 +40,16 @@ public:
     /// Cancel an order by ID. Removes from book and deallocates from pool.
     [[nodiscard]] bool cancel_order(OrderId id) noexcept;
 
+    /// Modify a resting order's price and/or quantity. The order loses time
+    /// priority (cancel-and-replace semantics). If the new price crosses the
+    /// opposite side, matching occurs.
+    [[nodiscard]] MatchResult modify_order(OrderId id, Price new_price,
+                                           Quantity new_quantity,
+                                           Timestamp new_timestamp) noexcept;
+
     [[nodiscard]] SelfTradePreventionMode stp_mode() const noexcept { return stp_mode_; }
     [[nodiscard]] uint64_t total_trade_count() const noexcept { return trade_id_counter_; }
+    [[nodiscard]] const OrderBook& book() const noexcept { return book_; }
 
 private:
     /// Core matching loop — walks opposite side levels, fills, generates trades.

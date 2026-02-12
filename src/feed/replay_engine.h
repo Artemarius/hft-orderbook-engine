@@ -56,6 +56,9 @@ struct ReplayStats {
     uint64_t orders_cancelled = 0;
     uint64_t trades_generated = 0;
     uint64_t cancel_failures = 0;
+    uint64_t modify_messages = 0;
+    uint64_t orders_modified = 0;
+    uint64_t modify_failures = 0;
     Price final_best_bid = 0;
     Price final_best_ask = 0;
     Price final_spread = 0;

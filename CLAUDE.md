@@ -78,8 +78,8 @@ No external dependencies on the hot path.
 
 ## Priorities
 
-1. **Hot path performance** — sub-microsecond median latency for add/cancel/match. Every allocation, branch, and cache miss matters.
-2. **Correct matching semantics** — price-time priority, proper handling of all order types (limit, market, IOC, FOK, iceberg)
+1. **Hot path performance** — sub-microsecond median latency for add/cancel/modify/match. Every allocation, branch, and cache miss matters.
+2. **Correct matching semantics** — price-time priority, proper handling of all order types (limit, market, IOC, FOK, iceberg), order modify (cancel-and-replace)
 3. **Hot/cold separation** — zero-alloc lock-free hot path vs normal C++ cold path must be architecturally enforced
 4. **Benchmarking rigor** — latency histograms with p50/p99/p99.9/max, throughput measurements, cache-miss analysis via `perf stat`
 5. **Market microstructure analytics** — spread, microprice, order flow imbalance, realized volatility, price impact

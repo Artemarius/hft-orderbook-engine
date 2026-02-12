@@ -25,7 +25,8 @@ enum class GatewayRejectReason : uint8_t {
     None,
     InvalidPrice,
     InvalidQuantity,
-    PoolExhausted
+    PoolExhausted,
+    OrderNotFound
 };
 
 /// Lightweight result returned to the caller of process_order().
@@ -56,6 +57,10 @@ public:
 
     /// Cancel an order by ID. Publishes OrderCancelled if successful.
     [[nodiscard]] bool process_cancel(OrderId order_id) noexcept;
+
+    /// Modify a resting order's price and/or quantity. Publishes
+    /// OrderModified, plus Trade/OrderFilled events if the new price crosses.
+    [[nodiscard]] GatewayResult process_modify(const OrderMessage& msg) noexcept;
 
     [[nodiscard]] uint64_t orders_processed() const noexcept { return orders_processed_; }
     [[nodiscard]] uint64_t orders_rejected() const noexcept { return orders_rejected_; }

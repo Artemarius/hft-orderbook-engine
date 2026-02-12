@@ -94,6 +94,65 @@ GatewayResult OrderGateway::process_order(const OrderMessage& msg) noexcept {
 }
 
 // ---------------------------------------------------------------------------
+// Modify
+// ---------------------------------------------------------------------------
+
+GatewayResult OrderGateway::process_modify(const OrderMessage& msg) noexcept {
+    GatewayResult result{};
+    result.accepted = false;
+    result.reject_reason = GatewayRejectReason::None;
+    result.match_status = MatchStatus::Rejected;
+    result.trade_count = 0;
+    result.filled_quantity = 0;
+    result.remaining_quantity = 0;
+
+    const Order& src = msg.order;
+
+    // Gateway-level validation
+    if (src.quantity == 0) {
+        result.reject_reason = GatewayRejectReason::InvalidQuantity;
+        ++orders_rejected_;
+        publish_rejection(src);
+        return result;
+    }
+
+    if (src.price <= 0) {
+        result.reject_reason = GatewayRejectReason::InvalidPrice;
+        ++orders_rejected_;
+        publish_rejection(src);
+        return result;
+    }
+
+    // Submit to matching engine
+    MatchResult match_result = engine_.modify_order(
+        src.order_id, src.price, src.quantity, src.timestamp);
+
+    if (match_result.status == MatchStatus::Rejected) {
+        result.reject_reason = GatewayRejectReason::OrderNotFound;
+        ++orders_rejected_;
+        publish_rejection(src);
+        return result;
+    }
+
+    // Build an order_copy for event decomposition using the new values
+    Order order_copy{};
+    order_copy.order_id = src.order_id;
+    order_copy.price = src.price;
+    order_copy.timestamp = src.timestamp;
+
+    decompose_and_publish(match_result, order_copy);
+
+    result.accepted = true;
+    result.match_status = match_result.status;
+    result.trade_count = match_result.trade_count;
+    result.filled_quantity = match_result.filled_quantity;
+    result.remaining_quantity = match_result.remaining_quantity;
+    ++orders_processed_;
+
+    return result;
+}
+
+// ---------------------------------------------------------------------------
 // Cancel
 // ---------------------------------------------------------------------------
 
@@ -166,6 +225,10 @@ void OrderGateway::decompose_and_publish(const MatchResult& result,
         case MatchStatus::SelfTradePrevented:
             event.type = EventType::OrderCancelled;
             event.data.order_event.status = OrderStatus::Cancelled;
+            break;
+        case MatchStatus::Modified:
+            event.type = EventType::OrderModified;
+            event.data.order_event.status = OrderStatus::Accepted;
             break;
     }
 

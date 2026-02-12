@@ -733,7 +733,7 @@ These are NOT required for the core project but would differentiate further:
 
 - [ ] FIX protocol message parsing (even basic) — shows awareness of real exchange protocols
 - [ ] Multiple instruments — generalize from single to multi-instrument order book
-- [ ] Order modify (amend price/quantity) — common in practice, tricky to implement correctly
+- [x] Order modify (amend price/quantity) — cancel-and-replace semantics, zero-alloc (reuses pool slot), crossing triggers matching, 32 new tests (322 total)
 - [ ] Python bindings (pybind11) for the analytics — useful for quant researchers
 - [ ] Grafana dashboard fed by analytics output — visual wow factor
 

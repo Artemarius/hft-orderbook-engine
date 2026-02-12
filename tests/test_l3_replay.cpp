@@ -152,10 +152,19 @@ TEST(L3EventTypeParsing, CaseInsensitiveTrade) {
     EXPECT_EQ(L3FeedParser::parse_event_type("Trade"), L3EventType::Trade);
 }
 
+TEST(L3EventTypeParsing, Modify) {
+    EXPECT_EQ(L3FeedParser::parse_event_type("MODIFY"), L3EventType::Modify);
+}
+
+TEST(L3EventTypeParsing, CaseInsensitiveModify) {
+    EXPECT_EQ(L3FeedParser::parse_event_type("modify"), L3EventType::Modify);
+    EXPECT_EQ(L3FeedParser::parse_event_type("Modify"), L3EventType::Modify);
+}
+
 TEST(L3EventTypeParsing, Invalid) {
-    EXPECT_EQ(L3FeedParser::parse_event_type("MODIFY"), L3EventType::Invalid);
     EXPECT_EQ(L3FeedParser::parse_event_type(""), L3EventType::Invalid);
     EXPECT_EQ(L3FeedParser::parse_event_type("X"), L3EventType::Invalid);
+    EXPECT_EQ(L3FeedParser::parse_event_type("DELETE"), L3EventType::Invalid);
 }
 
 // ===========================================================================
@@ -372,7 +381,7 @@ TEST(L3LineParsing, EmptyLines) {
 
 TEST(L3LineParsing, InvalidEventType) {
     auto path = write_temp_csv(
-        "1704067200000000000,MODIFY,1,BUY,42000.00,10\n");
+        "1704067200000000000,DELETE,1,BUY,42000.00,10\n");
     L3FeedParser parser;
     ASSERT_TRUE(parser.open(path));
 
@@ -483,6 +492,46 @@ TEST(L3LineParsing, ParseErrorsCounted) {
 // ===========================================================================
 // OrderMessage conversion tests
 // ===========================================================================
+
+TEST(L3LineParsing, ModifyLine) {
+    auto path = write_temp_csv(
+        "1704067200000500000,MODIFY,42,BUY,42200.00,20\n");
+    L3FeedParser parser;
+    ASSERT_TRUE(parser.open(path));
+
+    L3Record record;
+    ASSERT_TRUE(parser.next(record));
+    EXPECT_TRUE(record.valid);
+    EXPECT_EQ(record.event_type, L3EventType::Modify);
+    EXPECT_EQ(record.order_id, 42u);
+    EXPECT_EQ(record.side, Side::Buy);
+    EXPECT_EQ(record.price, 42200LL * PRICE_SCALE);
+    EXPECT_EQ(record.quantity, 20u);
+
+    parser.close();
+    remove_temp_csv(path);
+}
+
+TEST(L3ToModifyMessage, ModifyRecord) {
+    L3Record record{};
+    record.timestamp = 1704067200000000000ULL;
+    record.event_type = L3EventType::Modify;
+    record.order_id = 42;
+    record.side = Side::Buy;
+    record.price = 42200LL * PRICE_SCALE;
+    record.quantity = 25;
+    record.valid = true;
+
+    OrderMessage msg = L3FeedParser::to_modify_message(record);
+
+    EXPECT_EQ(msg.type, MessageType::Modify);
+    EXPECT_EQ(msg.order.order_id, 42u);
+    EXPECT_EQ(msg.order.side, Side::Buy);
+    EXPECT_EQ(msg.order.type, OrderType::Limit);
+    EXPECT_EQ(msg.order.price, 42200LL * PRICE_SCALE);
+    EXPECT_EQ(msg.order.quantity, 25u);
+    EXPECT_EQ(msg.order.timestamp, 1704067200000000000ULL);
+}
 
 TEST(L3ToOrderMessage, AddRecord) {
     L3Record record{};
@@ -685,6 +734,47 @@ TEST_F(ReplayEngineTest, TradeRecordIsInformational) {
     EXPECT_EQ(stats.add_messages, 0u);
     // No actual orders placed
     EXPECT_EQ(stats.orders_accepted, 0u);
+    EXPECT_EQ(stats.final_order_count, 0u);
+}
+
+TEST_F(ReplayEngineTest, ModifyOrder) {
+    auto config = make_config(
+        "1704067200000000000,ADD,1,BUY,42000.00,10\n"
+        "1704067200000100000,MODIFY,1,BUY,42001.00,15\n");
+    ReplayEngine engine(config);
+    auto stats = engine.run();
+
+    EXPECT_EQ(stats.add_messages, 1u);
+    EXPECT_EQ(stats.modify_messages, 1u);
+    EXPECT_EQ(stats.orders_modified, 1u);
+    EXPECT_EQ(stats.modify_failures, 0u);
+    EXPECT_EQ(stats.final_order_count, 1u);
+    EXPECT_EQ(stats.final_best_bid, 42001LL * PRICE_SCALE);
+}
+
+TEST_F(ReplayEngineTest, ModifyNonexistentOrderFails) {
+    auto config = make_config(
+        "1704067200000000000,ADD,1,BUY,42000.00,10\n"
+        "1704067200000100000,MODIFY,999,BUY,42001.00,15\n");
+    ReplayEngine engine(config);
+    auto stats = engine.run();
+
+    EXPECT_EQ(stats.modify_messages, 1u);
+    EXPECT_EQ(stats.orders_modified, 0u);
+    EXPECT_EQ(stats.modify_failures, 1u);
+}
+
+TEST_F(ReplayEngineTest, ModifyCrossing) {
+    auto config = make_config(
+        "1704067200000000000,ADD,1,SELL,42001.00,10\n"
+        "1704067200000100000,ADD,2,BUY,42000.00,10\n"
+        "1704067200000200000,MODIFY,2,BUY,42001.00,10\n");
+    ReplayEngine engine(config);
+    auto stats = engine.run();
+
+    EXPECT_EQ(stats.modify_messages, 1u);
+    EXPECT_EQ(stats.orders_modified, 1u);
+    EXPECT_EQ(stats.trades_generated, 1u);
     EXPECT_EQ(stats.final_order_count, 0u);
 }
 

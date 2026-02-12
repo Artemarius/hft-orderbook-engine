@@ -108,6 +108,7 @@ L3EventType L3FeedParser::parse_event_type(std::string_view str) {
             upper[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(str[i])));
         }
         if (upper == "CANCEL") return L3EventType::Cancel;
+        if (upper == "MODIFY") return L3EventType::Modify;
     }
     if (str.size() == 5) {
         std::string upper(str.size(), '\0');
@@ -213,6 +214,26 @@ OrderMessage L3FeedParser::to_order_message(const L3Record& record) {
     msg.type = MessageType::Add;
     msg.order.order_id = record.order_id;
     msg.order.participant_id = 0;  // L3 feed doesn't carry participant ID
+    msg.order.side = record.side;
+    msg.order.type = OrderType::Limit;
+    msg.order.time_in_force = TimeInForce::GTC;
+    msg.order.status = OrderStatus::New;
+    msg.order.price = record.price;
+    msg.order.quantity = record.quantity;
+    msg.order.visible_quantity = record.quantity;
+    msg.order.iceberg_slice_qty = 0;
+    msg.order.filled_quantity = 0;
+    msg.order.timestamp = record.timestamp;
+    msg.order.next = nullptr;
+    msg.order.prev = nullptr;
+    return msg;
+}
+
+OrderMessage L3FeedParser::to_modify_message(const L3Record& record) {
+    OrderMessage msg{};
+    msg.type = MessageType::Modify;
+    msg.order.order_id = record.order_id;
+    msg.order.participant_id = 0;
     msg.order.side = record.side;
     msg.order.type = OrderType::Limit;
     msg.order.time_in_force = TimeInForce::GTC;
@@ -360,6 +381,53 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
             // quantity
             if (!fields[5].empty()) {
                 record.quantity = parse_quantity(fields[5]);
+            }
+
+            break;
+        }
+
+        case L3EventType::Modify: {
+            // Same fields as ADD: order_id, side, price, quantity
+            if (fields.size() < 6) {
+                record.error = "MODIFY requires 6 fields";
+                return false;
+            }
+
+            // order_id
+            record.order_id = 0;
+            if (fields[2].empty()) {
+                record.error = "MODIFY requires order_id";
+                return false;
+            }
+            for (size_t i = 0; i < fields[2].size(); ++i) {
+                char c = fields[2][i];
+                if (c < '0' || c > '9') {
+                    record.error = "invalid order_id";
+                    return false;
+                }
+                record.order_id = record.order_id * 10 + static_cast<uint64_t>(c - '0');
+            }
+
+            // side
+            bool side_ok = false;
+            record.side = parse_side(fields[3], side_ok);
+            if (!side_ok) {
+                record.error = "invalid side: " + std::string(fields[3]);
+                return false;
+            }
+
+            // price
+            record.price = parse_price(fields[4]);
+            if (record.price == 0 && !fields[4].empty() && fields[4] != "0") {
+                record.error = "invalid price: " + std::string(fields[4]);
+                return false;
+            }
+
+            // quantity
+            record.quantity = parse_quantity(fields[5]);
+            if (record.quantity == 0) {
+                record.error = "invalid quantity: " + std::string(fields[5]);
+                return false;
             }
 
             break;

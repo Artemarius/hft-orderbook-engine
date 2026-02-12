@@ -21,7 +21,7 @@
 namespace hft {
 
 /// Type of event in an L3 feed record.
-enum class L3EventType : uint8_t { Add, Cancel, Trade, Invalid };
+enum class L3EventType : uint8_t { Add, Cancel, Trade, Modify, Invalid };
 
 /// A single parsed record from an L3 CSV file.
 struct L3Record {
@@ -77,6 +77,9 @@ public:
 
     /// Convert an L3Record (ADD) to an OrderMessage for the gateway.
     static OrderMessage to_order_message(const L3Record& record);
+
+    /// Convert an L3Record (MODIFY) to an OrderMessage for the gateway.
+    static OrderMessage to_modify_message(const L3Record& record);
 
     /// Parse a decimal price string to fixed-point int64_t.
     /// Uses integer arithmetic only — no stod.

@@ -11,8 +11,9 @@ I wanted to understand market microstructure from the ground up — not by readi
 **Matching Engine**
 - Price-time priority (FIFO) matching
 - Order types: Limit, Market, Immediate-or-Cancel, Fill-or-Kill, Good-Till-Cancel, Iceberg (hidden quantity)
+- Order modify (amend price/quantity) with cancel-and-replace semantics — modified orders lose time priority and can trigger crossing matches
 - Self-trade prevention by participant ID
-- Full order lifecycle: New → Ack → Partial Fill → Fill/Cancel, with event generation at each transition
+- Full order lifecycle: New → Ack → Partial Fill → Fill/Cancel/Modify, with event generation at each transition
 
 **Low-Latency Architecture**
 - Zero heap allocations on the hot path — pre-allocated memory pool / slab allocator for all Order objects
@@ -95,7 +96,7 @@ cmake --build build
 # Replay historical data with analytics
 ./build/replay --input data/btcusdt_l3_sample.csv --analytics
 
-# Unit tests (290 tests)
+# Unit tests (322 tests)
 cd build && ctest --output-on-failure
 ```
 

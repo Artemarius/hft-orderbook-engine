@@ -93,6 +93,46 @@ bool MatchingEngine::cancel_order(OrderId id) noexcept {
     return false;
 }
 
+MatchResult MatchingEngine::modify_order(OrderId id, Price new_price,
+                                          Quantity new_quantity,
+                                          Timestamp new_timestamp) noexcept {
+    MatchResult result{};
+    result.status = MatchStatus::Rejected;
+    result.trade_count = 0;
+    result.filled_quantity = 0;
+    result.remaining_quantity = 0;
+
+    auto mr = book_.modify_order(id, new_price, new_quantity, new_timestamp);
+    if (!mr.success) [[unlikely]] {
+        return result;
+    }
+
+    Order* order = mr.order;
+    result.remaining_quantity = order->remaining_quantity();
+
+    // Attempt matching at the new price
+    match_order(order, result);
+    result.remaining_quantity = order->remaining_quantity();
+
+    if (order->remaining_quantity() == 0) {
+        // Fully filled during crossing
+        result.status = MatchStatus::Filled;
+        order->status = OrderStatus::Filled;
+        pool_.deallocate(order);
+    } else {
+        // Rest remainder on the book
+        if (result.filled_quantity > 0) {
+            result.status = MatchStatus::PartialFill;
+            order->status = OrderStatus::PartialFill;
+        } else {
+            result.status = MatchStatus::Modified;
+        }
+        book_.add_order(order);
+    }
+
+    return result;
+}
+
 // ---------------------------------------------------------------------------
 // Core matching loop
 // ---------------------------------------------------------------------------

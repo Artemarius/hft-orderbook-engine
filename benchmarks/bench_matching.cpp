@@ -262,4 +262,105 @@ static void BM_FOK_Reject(benchmark::State& state) {
 }
 BENCHMARK(BM_FOK_Reject)->MinTime(1.0);
 
+// ---------------------------------------------------------------------------
+// BM_ModifyOrder_SamePrice — modify quantity only (no price change)
+// Target: ~200-400ns (similar to cancel + add)
+// ---------------------------------------------------------------------------
+
+static void BM_ModifyOrder_SamePrice(benchmark::State& state) {
+    MemoryPool<Order> pool(POOL_SIZE);
+    OrderBook book(MIN_PRICE, MAX_PRICE, TICK, POOL_SIZE);
+    MatchingEngine engine(book, pool, SelfTradePreventionMode::None);
+
+    place_ask_sentinel(book, pool);
+
+    OrderId next_id = 1;
+    // Place a resting sell far above MID
+    Order* sell = pool.allocate();
+    *sell = make_order(next_id++, Side::Sell, OrderType::Limit,
+                       MID + 50 * TICK, 1'000'000);
+    book.add_order(sell);
+
+    // Place initial buy that we'll keep modifying
+    Order* buy = pool.allocate();
+    *buy = make_order(next_id++, Side::Buy, OrderType::Limit, MID, 100);
+    book.add_order(buy);
+    OrderId modify_id = buy->order_id;
+
+    Quantity qty = 100;
+    for (auto _ : state) {
+        qty = (qty == 100) ? 200 : 100;
+        auto result = engine.modify_order(modify_id, MID, qty, next_id++);
+        benchmark::DoNotOptimize(result);
+    }
+}
+BENCHMARK(BM_ModifyOrder_SamePrice)->MinTime(1.0);
+
+// ---------------------------------------------------------------------------
+// BM_ModifyOrder_NewPrice — price change, no cross
+// ---------------------------------------------------------------------------
+
+static void BM_ModifyOrder_NewPrice(benchmark::State& state) {
+    MemoryPool<Order> pool(POOL_SIZE);
+    OrderBook book(MIN_PRICE, MAX_PRICE, TICK, POOL_SIZE);
+    MatchingEngine engine(book, pool, SelfTradePreventionMode::None);
+
+    place_ask_sentinel(book, pool);
+
+    OrderId next_id = 1;
+    // Place a resting sell far above MID
+    Order* sell = pool.allocate();
+    *sell = make_order(next_id++, Side::Sell, OrderType::Limit,
+                       MID + 50 * TICK, 1'000'000);
+    book.add_order(sell);
+
+    // Place initial buy
+    Order* buy = pool.allocate();
+    *buy = make_order(next_id++, Side::Buy, OrderType::Limit, MID, 100);
+    book.add_order(buy);
+    OrderId modify_id = buy->order_id;
+
+    bool toggle = false;
+    for (auto _ : state) {
+        Price new_price = toggle ? MID : (MID - TICK);
+        toggle = !toggle;
+        auto result = engine.modify_order(modify_id, new_price, 100, next_id++);
+        benchmark::DoNotOptimize(result);
+    }
+}
+BENCHMARK(BM_ModifyOrder_NewPrice)->MinTime(1.0);
+
+// ---------------------------------------------------------------------------
+// BM_ModifyOrder_Crossing — price change that triggers a match
+// ---------------------------------------------------------------------------
+
+static void BM_ModifyOrder_Crossing(benchmark::State& state) {
+    MemoryPool<Order> pool(POOL_SIZE);
+    OrderBook book(MIN_PRICE, MAX_PRICE, TICK, POOL_SIZE);
+    MatchingEngine engine(book, pool, SelfTradePreventionMode::None);
+
+    place_ask_sentinel(book, pool);
+    place_bid_sentinel(book, pool);
+
+    OrderId next_id = 1;
+    for (auto _ : state) {
+        // Place a resting sell at MID
+        Order* sell = pool.allocate();
+        *sell = make_order(next_id++, Side::Sell, OrderType::Limit, MID, 100);
+        book.add_order(sell);
+
+        // Place a buy below the sell
+        Order* buy = pool.allocate();
+        *buy = make_order(next_id++, Side::Buy, OrderType::Limit,
+                          MID - TICK, 100);
+        book.add_order(buy);
+        OrderId modify_id = buy->order_id;
+
+        // Modify the buy to cross the sell
+        auto result = engine.modify_order(modify_id, MID, 100, next_id++);
+        benchmark::DoNotOptimize(result);
+    }
+}
+BENCHMARK(BM_ModifyOrder_Crossing)->MinTime(1.0);
+
 BENCHMARK_MAIN();

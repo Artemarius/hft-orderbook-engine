@@ -1,5 +1,6 @@
 #include "orderbook/order_book.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -82,6 +83,58 @@ CancelResult OrderBook::cancel_order(OrderId id) noexcept {
     remove_order(order);
     order->status = OrderStatus::Cancelled;
     return {true, order};
+}
+
+ModifyResult OrderBook::modify_order(OrderId id, Price new_price,
+                                     Quantity new_quantity,
+                                     Timestamp new_timestamp) noexcept {
+    Order* order = order_map_.find(id);
+    if (!order) [[unlikely]] {
+        return {false, nullptr, 0, 0};
+    }
+
+    // Only resting orders (Accepted or PartialFill) can be modified
+    if (order->status != OrderStatus::Accepted &&
+        order->status != OrderStatus::PartialFill) [[unlikely]] {
+        return {false, nullptr, 0, 0};
+    }
+
+    // New quantity must be greater than already-filled quantity
+    if (new_quantity <= order->filled_quantity) [[unlikely]] {
+        return {false, nullptr, 0, 0};
+    }
+
+    // New price must be valid
+    if (!is_valid_price(new_price)) [[unlikely]] {
+        return {false, nullptr, 0, 0};
+    }
+
+    // Capture old values for event publishing
+    Price old_price = order->price;
+    Quantity old_quantity = order->quantity;
+
+    // Remove from current level and order map
+    remove_order(order);
+
+    // Mutate fields in-place
+    order->price = new_price;
+    order->quantity = new_quantity;
+    order->timestamp = new_timestamp;
+
+    // Update visible_quantity for iceberg awareness
+    if (order->type == OrderType::Iceberg && order->iceberg_slice_qty > 0) {
+        Quantity remaining = new_quantity - order->filled_quantity;
+        Quantity new_visible = std::min(order->iceberg_slice_qty, remaining);
+        order->visible_quantity = order->filled_quantity + new_visible;
+    } else {
+        order->visible_quantity = new_quantity;
+    }
+
+    // Clear list pointers
+    order->next = nullptr;
+    order->prev = nullptr;
+
+    return {true, order, old_price, old_quantity};
 }
 
 void OrderBook::remove_order(Order* order) noexcept {

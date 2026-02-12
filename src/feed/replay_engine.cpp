@@ -108,6 +108,25 @@ ReplayStats ReplayEngine::run() {
                 break;
             }
 
+            case L3EventType::Modify: {
+                ++stats.modify_messages;
+                OrderMessage msg = L3FeedParser::to_modify_message(record);
+                GatewayResult result = gateway_->process_modify(msg);
+                if (result.accepted) {
+                    ++stats.orders_modified;
+                    stats.trades_generated += result.trade_count;
+                } else {
+                    ++stats.modify_failures;
+                    if (config_.verbose) {
+                        std::cerr << "Modify order " << record.order_id
+                                  << " failed (reason "
+                                  << static_cast<int>(result.reject_reason)
+                                  << ")\n";
+                    }
+                }
+                break;
+            }
+
             case L3EventType::Trade: {
                 ++stats.trade_messages;
                 // TRADE records are informational only — matching engine
@@ -170,6 +189,7 @@ void ReplayEngine::write_report(const ReplayStats& stats) const {
     report["messages"]["total"] = stats.total_messages;
     report["messages"]["add"] = stats.add_messages;
     report["messages"]["cancel"] = stats.cancel_messages;
+    report["messages"]["modify"] = stats.modify_messages;
     report["messages"]["trade"] = stats.trade_messages;
     report["messages"]["parse_errors"] = stats.parse_errors;
 
@@ -177,6 +197,8 @@ void ReplayEngine::write_report(const ReplayStats& stats) const {
     report["orders"]["rejected"] = stats.orders_rejected;
     report["orders"]["cancelled"] = stats.orders_cancelled;
     report["orders"]["cancel_failures"] = stats.cancel_failures;
+    report["orders"]["modified"] = stats.orders_modified;
+    report["orders"]["modify_failures"] = stats.modify_failures;
 
     report["trades"]["generated"] = stats.trades_generated;
 

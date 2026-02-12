@@ -58,7 +58,8 @@ enum class EventType : uint8_t {
     OrderCancelled,     // Order was cancelled
     OrderRejected,      // Order was rejected (e.g. FOK not feasible)
     OrderFilled,        // Order fully filled (terminal)
-    OrderPartialFill    // Order partially filled
+    OrderPartialFill,   // Order partially filled
+    OrderModified       // Order modified (price/quantity amended)
 };
 
 /// Order event data — status update for a single order.

@@ -35,6 +35,13 @@ struct CancelResult {
     Order* order;  // The cancelled order (caller can return to pool)
 };
 
+struct ModifyResult {
+    bool success;
+    Order* order;        // Detached order (still pool-allocated)
+    Price old_price;     // For event publishing
+    Quantity old_quantity;
+};
+
 class OrderBook {
 public:
     /// @param min_price  Lowest supported price (fixed-point).
@@ -56,6 +63,13 @@ public:
     /// Cancel an order by ID. Returns the cancelled order pointer so the
     /// caller can return it to the memory pool.
     CancelResult cancel_order(OrderId id) noexcept;
+
+    /// Modify an order's price and/or quantity. Removes the order from its
+    /// current level, mutates fields in-place, and returns the detached order
+    /// for the caller to re-match and re-add. The order loses time priority.
+    ModifyResult modify_order(OrderId id, Price new_price,
+                              Quantity new_quantity,
+                              Timestamp new_timestamp) noexcept;
 
     /// Remove a specific order from its price level and the order map.
     /// Used by the matching engine after fills.

@@ -478,6 +478,102 @@ TEST_F(OrderBookTest, CancelAllLeavesEmpty) {
     EXPECT_EQ(book_->spread(), -1);
 }
 
+// --- Modify ---
+
+TEST_F(OrderBookTest, ModifyPrice) {
+    Price old_px = 50000 * PRICE_SCALE;
+    Price new_px = 50001 * PRICE_SCALE;
+    Order* o = alloc_order(1, Side::Buy, old_px, 100);
+    book_->add_order(o);
+
+    auto result = book_->modify_order(1, new_px, 100, 1000);
+    EXPECT_TRUE(result.success);
+    EXPECT_EQ(result.order, o);
+    EXPECT_EQ(result.old_price, old_px);
+    EXPECT_EQ(result.old_quantity, 100u);
+    EXPECT_EQ(o->price, new_px);
+    EXPECT_EQ(o->quantity, 100u);
+    EXPECT_EQ(o->next, nullptr);
+    EXPECT_EQ(o->prev, nullptr);
+    // Order is detached — book count should be 0
+    EXPECT_EQ(book_->order_count(), 0u);
+}
+
+TEST_F(OrderBookTest, ModifyQuantity) {
+    Price px = 50000 * PRICE_SCALE;
+    Order* o = alloc_order(1, Side::Buy, px, 100);
+    book_->add_order(o);
+
+    auto result = book_->modify_order(1, px, 200, 1000);
+    EXPECT_TRUE(result.success);
+    EXPECT_EQ(result.old_quantity, 100u);
+    EXPECT_EQ(o->quantity, 200u);
+    EXPECT_EQ(o->visible_quantity, 200u);
+}
+
+TEST_F(OrderBookTest, ModifyNotFound) {
+    auto result = book_->modify_order(999, 50000 * PRICE_SCALE, 100, 1000);
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.order, nullptr);
+}
+
+TEST_F(OrderBookTest, ModifyInvalidPrice) {
+    Price px = 50000 * PRICE_SCALE;
+    Order* o = alloc_order(1, Side::Buy, px, 100);
+    book_->add_order(o);
+
+    // Non-tick-aligned price
+    auto result = book_->modify_order(1, px + 1, 100, 1000);
+    EXPECT_FALSE(result.success);
+    // Order should still be on the book
+    EXPECT_EQ(book_->order_count(), 1u);
+}
+
+TEST_F(OrderBookTest, ModifyBelowFilled) {
+    Price px = 50000 * PRICE_SCALE;
+    Order* o = alloc_order(1, Side::Buy, px, 100);
+    o->filled_quantity = 50;
+    o->status = OrderStatus::PartialFill;
+    book_->add_order(o);
+
+    // new_quantity <= filled_quantity — rejected
+    auto result = book_->modify_order(1, px, 50, 1000);
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(book_->order_count(), 1u);
+
+    // new_quantity < filled_quantity — also rejected
+    auto result2 = book_->modify_order(1, px, 30, 1000);
+    EXPECT_FALSE(result2.success);
+}
+
+TEST_F(OrderBookTest, ModifyUpdatesMap) {
+    Price old_px = 50000 * PRICE_SCALE;
+    Price new_px = 50001 * PRICE_SCALE;
+    Order* o = alloc_order(1, Side::Buy, old_px, 100);
+    book_->add_order(o);
+
+    auto result = book_->modify_order(1, new_px, 100, 1000);
+    EXPECT_TRUE(result.success);
+    // After modify, order is detached — find_order should return nullptr
+    EXPECT_EQ(book_->find_order(1), nullptr);
+}
+
+TEST_F(OrderBookTest, ModifyUpdatesBestBidAsk) {
+    Price px1 = 50000 * PRICE_SCALE;
+    Price px2 = 50001 * PRICE_SCALE;
+    Order* o1 = alloc_order(1, Side::Buy, px1, 100);
+    Order* o2 = alloc_order(2, Side::Buy, px2, 100);
+    book_->add_order(o1);
+    book_->add_order(o2);
+    EXPECT_EQ(book_->best_bid()->price, px2);
+
+    // Modify the best bid — it gets detached, so best bid should drop to px1
+    auto result = book_->modify_order(2, px2, 200, 1000);
+    EXPECT_TRUE(result.success);
+    EXPECT_NE(book_->best_bid(), nullptr);
+    EXPECT_EQ(book_->best_bid()->price, px1);
+}
+
 // --- Stress: many levels, many orders ---
 
 TEST_F(OrderBookTest, ManyLevelsAndOrders) {
