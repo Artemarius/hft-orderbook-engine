@@ -5,3 +5,6 @@ target_link_libraries(bench_orderbook PRIVATE hft_orderbook benchmark::benchmark
 
 add_executable(bench_matching bench_matching.cpp)
 target_link_libraries(bench_matching PRIVATE hft_matching benchmark::benchmark_main)
+
+add_executable(bench_spsc bench_spsc.cpp)
+target_link_libraries(bench_spsc PRIVATE hft_transport benchmark::benchmark_main)

@@ -21,3 +21,8 @@ gtest_discover_tests(test_order_book)
 add_executable(test_matching_engine test_matching_engine.cpp)
 target_link_libraries(test_matching_engine PRIVATE hft_matching GTest::gtest_main)
 gtest_discover_tests(test_matching_engine)
+
+# test_spsc_ring_buffer — verifies SPSC ring buffer, message types, threading
+add_executable(test_spsc_ring_buffer test_spsc_ring_buffer.cpp)
+target_link_libraries(test_spsc_ring_buffer PRIVATE hft_transport GTest::gtest_main)
+gtest_discover_tests(test_spsc_ring_buffer)
