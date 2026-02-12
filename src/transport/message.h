@@ -32,9 +32,10 @@ enum class MessageType : uint8_t {
 /// Fixed-size inbound order message. Carries a full Order struct so the
 /// matching engine can operate on it directly without extra lookups.
 struct alignas(64) OrderMessage {
-    MessageType type;       // 1 byte
-    uint8_t pad_[7];        // 7 bytes padding for 8-byte alignment
-    Order order;            // 80 bytes
+    MessageType type;            // 1 byte
+    uint8_t pad_[3];             // 3 bytes padding
+    InstrumentId instrument_id;  // 4 bytes — instrument routing key
+    Order order;                 // 88 bytes
     // implicit trailing padding to 128 bytes (alignas(64), next multiple)
 };
 
@@ -92,10 +93,11 @@ static_assert(std::is_trivially_copyable_v<EventData>,
 /// Fixed-size outbound event message. One event per trade or order status
 /// change — decomposed from MatchResult for efficient ring buffer transport.
 struct alignas(64) EventMessage {
-    EventType type;          // 1 byte
-    uint8_t pad_[7];         // 7 bytes padding for 8-byte alignment
-    uint64_t sequence_num;   // 8 bytes — monotonically increasing sequence
-    EventData data;          // 48 bytes
+    EventType type;              // 1 byte
+    uint8_t pad_[3];             // 3 bytes padding
+    InstrumentId instrument_id;  // 4 bytes — instrument routing key
+    uint64_t sequence_num;       // 8 bytes — monotonically increasing sequence
+    EventData data;              // 48 bytes
 };
 
 static_assert(std::is_trivially_copyable_v<EventMessage>,

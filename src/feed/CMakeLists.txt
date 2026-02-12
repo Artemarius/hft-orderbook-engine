@@ -4,6 +4,7 @@
 add_library(hft_feed STATIC
     l3_feed_parser.cpp
     replay_engine.cpp
+    multi_instrument_replay_engine.cpp
 )
 
 target_include_directories(hft_feed PUBLIC

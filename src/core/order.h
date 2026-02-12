@@ -17,6 +17,7 @@ namespace hft {
 struct Order {
     OrderId order_id;
     ParticipantId participant_id;
+    InstrumentId instrument_id;
     Side side;
     OrderType type;
     TimeInForce time_in_force;

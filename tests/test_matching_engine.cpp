@@ -49,6 +49,7 @@ protected:
         Order* o = pool_->allocate();
         o->order_id = id;
         o->participant_id = participant;
+        o->instrument_id = DEFAULT_INSTRUMENT_ID;
         o->side = side;
         o->type = type;
         o->time_in_force = TimeInForce::GTC;

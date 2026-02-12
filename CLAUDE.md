@@ -4,18 +4,20 @@
 
 ```
 src/
-  core/          — Order, Trade, PriceLevel, enums (Side, OrderType, TimeInForce)
+  core/          — Order, Trade, PriceLevel, enums (Side, OrderType, TimeInForce, InstrumentId)
   orderbook/     — OrderBook (per-instrument), PriceLevelPool, MemoryPool
   matching/      — MatchingEngine, order validation, self-trade prevention
-  gateway/       — OrderGateway (ingestion), MarketDataPublisher (output)
+  gateway/       — OrderGateway, MarketDataPublisher, InstrumentRegistry, InstrumentRouter
   transport/     — SPSC ring buffer, MPSC queue, message serialization
-  feed/          — Market data feed handler, L3 data replay from file
-  analytics/     — Spread, microprice, imbalance, realized vol, impact curves
+  feed/          — L3 feed parser, single- and multi-instrument replay engines
+  analytics/     — Spread, microprice, imbalance, realized vol, impact curves (single + multi-instrument)
   utils/         — Clock (rdtsc-based), logging, config
 tests/           — Google Test unit tests for every component
 benchmarks/      — Google Benchmark + custom latency profiling
-data/            — Sample L3 order data (Binance historical)
+data/            — Sample L3 order data (single- and multi-instrument)
 ```
+
+The engine supports multiple instruments simultaneously. `OrderBook` and `MatchingEngine` remain single-instrument classes — multi-instrument awareness lives in the `InstrumentRouter` layer, which owns a per-instrument pipeline (book + pool + engine + gateway) and dispatches orders via O(1) flat-array lookup. All instruments share a single `EventBuffer`; the `instrument_id` field in each `EventMessage` header distinguishes them.
 
 The hot path (order ingestion → matching → market data output) is strictly separated from the cold path (analytics, logging, configuration). This separation is architectural, not just conventional — different compiler flags, different allowed constructs, different performance contracts.
 
@@ -56,8 +58,11 @@ cmake --build build -- -j$(nproc)
 # Matching engine benchmark
 ./build/bench_orderbook
 
-# Replay historical data with analytics
-./build/replay --input data/btcusdt_l3.csv --output analytics/report.json
+# Replay historical data with analytics (single-instrument)
+./build/replay --input data/btcusdt_l3_sample.csv --analytics
+
+# Replay multi-instrument data (auto-detected from 7-column CSV with "symbol" header)
+./build/replay --input data/multi_instrument_l3_sample.csv --analytics
 
 # Unit tests
 cd build && ctest --output-on-failure
@@ -89,7 +94,10 @@ No external dependencies on the hot path.
 - **Price-time priority**: FIFO within each price level
 - **Order types**: Limit, Market, IOC, FOK, GTC, Iceberg (hidden quantity)
 - **Self-trade prevention**: detect and prevent by participant ID
+- **InstrumentId**: `uint32_t` identifier for each tradable instrument; `DEFAULT_INSTRUMENT_ID = 0` for backward compatibility
+- **InstrumentRouter**: O(1) dispatch layer mapping `InstrumentId` → per-instrument pipeline (`OrderBook` + `MatchingEngine` + `OrderGateway`)
 - **L3 data**: order-by-order feed format (individual add/modify/cancel/trade messages)
+- **Multi-instrument CSV**: 7-column format (`symbol,timestamp,event_type,order_id,side,price,quantity`); auto-detected, backward-compatible with 6-column single-instrument format
 - **Microprice**: `(bid_size * ask_price + ask_size * bid_price) / (bid_size + ask_size)`
 - **Order flow imbalance**: `(buy_volume - sell_volume) / (buy_volume + sell_volume)`
 - **Kyle's Lambda**: price impact coefficient from regressing price changes on signed order flow

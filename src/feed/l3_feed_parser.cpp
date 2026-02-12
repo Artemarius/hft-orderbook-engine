@@ -21,6 +21,7 @@ bool L3FeedParser::open(const std::string& path) {
     }
     lines_read_ = 0;
     parse_errors_ = 0;
+    has_symbol_column_ = false;
     return true;
 }
 
@@ -64,6 +65,7 @@ void L3FeedParser::reset() {
         file_.seekg(0);
         lines_read_ = 0;
         parse_errors_ = 0;
+        has_symbol_column_ = false;
     }
 }
 
@@ -209,11 +211,14 @@ Quantity L3FeedParser::parse_quantity(std::string_view str) {
     return result;
 }
 
-OrderMessage L3FeedParser::to_order_message(const L3Record& record) {
+OrderMessage L3FeedParser::to_order_message(const L3Record& record,
+                                             InstrumentId instrument_id) {
     OrderMessage msg{};
     msg.type = MessageType::Add;
+    msg.instrument_id = instrument_id;
     msg.order.order_id = record.order_id;
     msg.order.participant_id = 0;  // L3 feed doesn't carry participant ID
+    msg.order.instrument_id = instrument_id;
     msg.order.side = record.side;
     msg.order.type = OrderType::Limit;
     msg.order.time_in_force = TimeInForce::GTC;
@@ -229,11 +234,14 @@ OrderMessage L3FeedParser::to_order_message(const L3Record& record) {
     return msg;
 }
 
-OrderMessage L3FeedParser::to_modify_message(const L3Record& record) {
+OrderMessage L3FeedParser::to_modify_message(const L3Record& record,
+                                              InstrumentId instrument_id) {
     OrderMessage msg{};
     msg.type = MessageType::Modify;
+    msg.instrument_id = instrument_id;
     msg.order.order_id = record.order_id;
     msg.order.participant_id = 0;
+    msg.order.instrument_id = instrument_id;
     msg.order.side = record.side;
     msg.order.type = OrderType::Limit;
     msg.order.time_in_force = TimeInForce::GTC;
@@ -262,14 +270,32 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
         return false;
     }
 
-    // Field 0: timestamp
-    if (fields[0].empty()) {
+    // Detect 7-column format: first field is a symbol (not a digit string)
+    // Once detected on first data line, has_symbol_column_ persists for the file.
+    size_t offset = 0;
+    if (has_symbol_column_) {
+        offset = 1;
+    } else if (fields.size() >= 7 && !fields[0].empty() &&
+               (fields[0][0] < '0' || fields[0][0] > '9')) {
+        has_symbol_column_ = true;
+        offset = 1;
+    }
+
+    if (offset == 1) {
+        record.symbol = std::string(fields[0]);
+    }
+
+    size_t ts_idx = offset;
+    size_t et_idx = offset + 1;
+
+    // Field ts_idx: timestamp
+    if (ts_idx >= fields.size() || fields[ts_idx].empty()) {
         record.error = "empty timestamp";
         return false;
     }
     record.timestamp = 0;
-    for (size_t i = 0; i < fields[0].size(); ++i) {
-        char c = fields[0][i];
+    for (size_t i = 0; i < fields[ts_idx].size(); ++i) {
+        char c = fields[ts_idx][i];
         if (c < '0' || c > '9') {
             record.error = "invalid timestamp";
             return false;
@@ -277,30 +303,42 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
         record.timestamp = record.timestamp * 10 + static_cast<uint64_t>(c - '0');
     }
 
-    // Field 1: event_type
-    record.event_type = parse_event_type(fields[1]);
+    // Field et_idx: event_type
+    if (et_idx >= fields.size()) {
+        record.error = "missing event_type";
+        return false;
+    }
+    record.event_type = parse_event_type(fields[et_idx]);
     if (record.event_type == L3EventType::Invalid) {
         record.error = "invalid event type: " + std::string(fields[1]);
         return false;
     }
 
+    // Field indices after the symbol/timestamp/event_type preamble
+    size_t oid_idx  = offset + 2;  // order_id
+    size_t side_idx = offset + 3;  // side
+    size_t px_idx   = offset + 4;  // price
+    size_t qty_idx  = offset + 5;  // quantity
+    size_t min_full = offset + 6;  // minimum fields for full records
+    size_t min_cancel = offset + 3; // minimum fields for cancel
+
     // Remaining fields depend on event type
     switch (record.event_type) {
         case L3EventType::Add: {
-            // Need: order_id, side, price, quantity (fields 2-5)
-            if (fields.size() < 6) {
-                record.error = "ADD requires 6 fields";
+            // Need: order_id, side, price, quantity
+            if (fields.size() < min_full) {
+                record.error = "ADD requires 6 data fields";
                 return false;
             }
 
             // order_id
             record.order_id = 0;
-            if (fields[2].empty()) {
+            if (fields[oid_idx].empty()) {
                 record.error = "ADD requires order_id";
                 return false;
             }
-            for (size_t i = 0; i < fields[2].size(); ++i) {
-                char c = fields[2][i];
+            for (size_t i = 0; i < fields[oid_idx].size(); ++i) {
+                char c = fields[oid_idx][i];
                 if (c < '0' || c > '9') {
                     record.error = "invalid order_id";
                     return false;
@@ -310,23 +348,23 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
 
             // side
             bool side_ok = false;
-            record.side = parse_side(fields[3], side_ok);
+            record.side = parse_side(fields[side_idx], side_ok);
             if (!side_ok) {
-                record.error = "invalid side: " + std::string(fields[3]);
+                record.error = "invalid side: " + std::string(fields[side_idx]);
                 return false;
             }
 
             // price
-            record.price = parse_price(fields[4]);
-            if (record.price == 0 && !fields[4].empty() && fields[4] != "0") {
-                record.error = "invalid price: " + std::string(fields[4]);
+            record.price = parse_price(fields[px_idx]);
+            if (record.price == 0 && !fields[px_idx].empty() && fields[px_idx] != "0") {
+                record.error = "invalid price: " + std::string(fields[px_idx]);
                 return false;
             }
 
             // quantity
-            record.quantity = parse_quantity(fields[5]);
+            record.quantity = parse_quantity(fields[qty_idx]);
             if (record.quantity == 0) {
-                record.error = "invalid quantity: " + std::string(fields[5]);
+                record.error = "invalid quantity: " + std::string(fields[qty_idx]);
                 return false;
             }
 
@@ -334,20 +372,20 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
         }
 
         case L3EventType::Cancel: {
-            // Need: order_id (field 2); others optional/empty
-            if (fields.size() < 3) {
-                record.error = "CANCEL requires at least 3 fields";
+            // Need: order_id; others optional/empty
+            if (fields.size() < min_cancel) {
+                record.error = "CANCEL requires at least 3 data fields";
                 return false;
             }
 
             // order_id
             record.order_id = 0;
-            if (fields[2].empty()) {
+            if (fields[oid_idx].empty()) {
                 record.error = "CANCEL requires order_id";
                 return false;
             }
-            for (size_t i = 0; i < fields[2].size(); ++i) {
-                char c = fields[2][i];
+            for (size_t i = 0; i < fields[oid_idx].size(); ++i) {
+                char c = fields[oid_idx][i];
                 if (c < '0' || c > '9') {
                     record.error = "invalid order_id";
                     return false;
@@ -359,28 +397,28 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
         }
 
         case L3EventType::Trade: {
-            // Informational: side, price, quantity (fields 3-5)
+            // Informational: side, price, quantity
             // order_id is empty/optional for trades
-            if (fields.size() < 6) {
-                record.error = "TRADE requires 6 fields";
+            if (fields.size() < min_full) {
+                record.error = "TRADE requires 6 data fields";
                 return false;
             }
 
             // side (optional for trades, but parse if present)
-            if (!fields[3].empty()) {
+            if (!fields[side_idx].empty()) {
                 bool side_ok = false;
-                record.side = parse_side(fields[3], side_ok);
+                record.side = parse_side(fields[side_idx], side_ok);
                 // Side is informational for TRADE — don't fail on invalid
             }
 
             // price
-            if (!fields[4].empty()) {
-                record.price = parse_price(fields[4]);
+            if (!fields[px_idx].empty()) {
+                record.price = parse_price(fields[px_idx]);
             }
 
             // quantity
-            if (!fields[5].empty()) {
-                record.quantity = parse_quantity(fields[5]);
+            if (!fields[qty_idx].empty()) {
+                record.quantity = parse_quantity(fields[qty_idx]);
             }
 
             break;
@@ -388,19 +426,19 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
 
         case L3EventType::Modify: {
             // Same fields as ADD: order_id, side, price, quantity
-            if (fields.size() < 6) {
-                record.error = "MODIFY requires 6 fields";
+            if (fields.size() < min_full) {
+                record.error = "MODIFY requires 6 data fields";
                 return false;
             }
 
             // order_id
             record.order_id = 0;
-            if (fields[2].empty()) {
+            if (fields[oid_idx].empty()) {
                 record.error = "MODIFY requires order_id";
                 return false;
             }
-            for (size_t i = 0; i < fields[2].size(); ++i) {
-                char c = fields[2][i];
+            for (size_t i = 0; i < fields[oid_idx].size(); ++i) {
+                char c = fields[oid_idx][i];
                 if (c < '0' || c > '9') {
                     record.error = "invalid order_id";
                     return false;
@@ -410,23 +448,23 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
 
             // side
             bool side_ok = false;
-            record.side = parse_side(fields[3], side_ok);
+            record.side = parse_side(fields[side_idx], side_ok);
             if (!side_ok) {
-                record.error = "invalid side: " + std::string(fields[3]);
+                record.error = "invalid side: " + std::string(fields[side_idx]);
                 return false;
             }
 
             // price
-            record.price = parse_price(fields[4]);
-            if (record.price == 0 && !fields[4].empty() && fields[4] != "0") {
-                record.error = "invalid price: " + std::string(fields[4]);
+            record.price = parse_price(fields[px_idx]);
+            if (record.price == 0 && !fields[px_idx].empty() && fields[px_idx] != "0") {
+                record.error = "invalid price: " + std::string(fields[px_idx]);
                 return false;
             }
 
             // quantity
-            record.quantity = parse_quantity(fields[5]);
+            record.quantity = parse_quantity(fields[qty_idx]);
             if (record.quantity == 0) {
-                record.error = "invalid quantity: " + std::string(fields[5]);
+                record.error = "invalid quantity: " + std::string(fields[qty_idx]);
                 return false;
             }
 
@@ -446,12 +484,16 @@ bool L3FeedParser::is_header(std::string_view line) {
     // Check if the line starts with common header words (case-insensitive)
     if (line.size() < 4) return false;
 
-    // Check for "timestamp" at the start
-    std::string prefix(line.substr(0, 9));
-    for (auto& c : prefix) {
+    auto fields = split_csv(line);
+    if (fields.empty()) return false;
+
+    // Lower-case first field
+    std::string first(fields[0]);
+    for (auto& c : first) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
-    return prefix == "timestamp";
+
+    return first == "timestamp" || first == "symbol";
 }
 
 }  // namespace hft

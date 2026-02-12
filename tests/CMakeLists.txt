@@ -42,6 +42,16 @@ add_executable(test_analytics test_analytics.cpp)
 target_link_libraries(test_analytics PRIVATE hft_analytics hft_feed GTest::gtest_main)
 gtest_discover_tests(test_analytics)
 
+# test_instrument_router — verifies multi-instrument routing and isolation
+add_executable(test_instrument_router test_instrument_router.cpp)
+target_link_libraries(test_instrument_router PRIVATE hft_gateway GTest::gtest_main)
+gtest_discover_tests(test_instrument_router)
+
+# test_multi_instrument_replay — verifies multi-instrument CSV parsing and replay
+add_executable(test_multi_instrument_replay test_multi_instrument_replay.cpp)
+target_link_libraries(test_multi_instrument_replay PRIVATE hft_feed hft_analytics GTest::gtest_main)
+gtest_discover_tests(test_multi_instrument_replay)
+
 # test_utils — verifies clock.h and latency_histogram.h utilities
 add_executable(test_utils test_utils.cpp)
 target_link_libraries(test_utils PRIVATE hft_utils GTest::gtest_main)

@@ -9,10 +9,12 @@ namespace hft {
 // ---------------------------------------------------------------------------
 
 OrderGateway::OrderGateway(MatchingEngine& engine, MemoryPool<Order>& pool,
-                           EventBuffer* event_buffer) noexcept
+                           EventBuffer* event_buffer,
+                           InstrumentId instrument_id) noexcept
     : engine_(engine),
       pool_(pool),
       event_buffer_(event_buffer),
+      instrument_id_(instrument_id),
       sequence_num_(0),
       orders_processed_(0),
       orders_rejected_(0),
@@ -162,6 +164,7 @@ bool OrderGateway::process_cancel(OrderId order_id) noexcept {
     if (success && event_buffer_) {
         EventMessage event{};
         event.type = EventType::OrderCancelled;
+        event.instrument_id = instrument_id_;
         event.sequence_num = next_sequence_num();
         event.data.order_event.order_id = order_id;
         event.data.order_event.status = OrderStatus::Cancelled;
@@ -187,6 +190,7 @@ void OrderGateway::decompose_and_publish(const MatchResult& result,
     for (uint32_t i = 0; i < result.trade_count; ++i) {
         EventMessage event{};
         event.type = EventType::Trade;
+        event.instrument_id = instrument_id_;
         event.sequence_num = next_sequence_num();
         event.data.trade = result.trades[i];
         publish_event(event);
@@ -194,6 +198,7 @@ void OrderGateway::decompose_and_publish(const MatchResult& result,
 
     // Then terminal order status
     EventMessage event{};
+    event.instrument_id = instrument_id_;
     event.sequence_num = next_sequence_num();
     event.data.order_event.order_id = order_copy.order_id;
     event.data.order_event.filled_quantity = result.filled_quantity;
@@ -244,6 +249,7 @@ void OrderGateway::publish_rejection(const Order& src) noexcept {
 
     EventMessage event{};
     event.type = EventType::OrderRejected;
+    event.instrument_id = instrument_id_;
     event.sequence_num = next_sequence_num();
     event.data.order_event.order_id = src.order_id;
     event.data.order_event.status = OrderStatus::Rejected;

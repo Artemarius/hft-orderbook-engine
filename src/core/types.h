@@ -44,6 +44,10 @@ using Price = int64_t;
 using Quantity = uint64_t;
 using OrderId = uint64_t;
 using ParticipantId = uint32_t;
+using InstrumentId = uint32_t;
+
+/// Default instrument ID for backward compatibility (single-instrument mode).
+constexpr InstrumentId DEFAULT_INSTRUMENT_ID = 0;
 
 /// Nanoseconds since epoch (or rdtsc ticks on the hot path).
 using Timestamp = uint64_t;

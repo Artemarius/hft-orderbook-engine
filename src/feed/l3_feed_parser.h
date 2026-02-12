@@ -31,6 +31,7 @@ struct L3Record {
     Side side;
     Price price;          // fixed-point (PRICE_SCALE)
     Quantity quantity;
+    std::string symbol;   // empty for single-instrument (6-column) files
     bool valid;
     std::string error;
 };
@@ -73,13 +74,20 @@ public:
     /// Number of lines that failed to parse.
     [[nodiscard]] uint64_t parse_errors() const { return parse_errors_; }
 
+    /// Whether the CSV has a symbol column (7-column format).
+    [[nodiscard]] bool has_symbol_column() const { return has_symbol_column_; }
+
     // -- Static parsing utilities --
 
     /// Convert an L3Record (ADD) to an OrderMessage for the gateway.
-    static OrderMessage to_order_message(const L3Record& record);
+    static OrderMessage to_order_message(
+        const L3Record& record,
+        InstrumentId instrument_id = DEFAULT_INSTRUMENT_ID);
 
     /// Convert an L3Record (MODIFY) to an OrderMessage for the gateway.
-    static OrderMessage to_modify_message(const L3Record& record);
+    static OrderMessage to_modify_message(
+        const L3Record& record,
+        InstrumentId instrument_id = DEFAULT_INSTRUMENT_ID);
 
     /// Parse a decimal price string to fixed-point int64_t.
     /// Uses integer arithmetic only — no stod.
@@ -111,6 +119,7 @@ private:
     std::string current_line_;
     uint64_t lines_read_ = 0;
     uint64_t parse_errors_ = 0;
+    bool has_symbol_column_ = false;
 };
 
 }  // namespace hft

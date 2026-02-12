@@ -46,6 +46,7 @@ TEST(TypesTest, TypeSizesAreMinimal) {
     EXPECT_EQ(sizeof(Quantity), 8);
     EXPECT_EQ(sizeof(OrderId), 8);
     EXPECT_EQ(sizeof(ParticipantId), 4);
+    EXPECT_EQ(sizeof(InstrumentId), 4);
     EXPECT_EQ(sizeof(Timestamp), 8);
 }
 
@@ -74,9 +75,9 @@ TEST(OrderTest, FitsInTwoCacheLines) {
 
 TEST(OrderTest, FieldLayout) {
     // Verify there's no unexpected padding blowing up the size.
-    // 8 + 4 + 1 + 1 + 1 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 = 80
-    // Includes iceberg_slice_qty field. Actual size may include tail padding.
-    EXPECT_LE(sizeof(Order), 88u);
+    // 8 + 4 + 4 + 1 + 1 + 1 + 1 + [4 pad] + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 = 88
+    // Includes instrument_id and iceberg_slice_qty fields.
+    EXPECT_LE(sizeof(Order), 96u);
 }
 
 TEST(OrderTest, MemcpySafe) {

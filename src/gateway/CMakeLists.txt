@@ -4,6 +4,8 @@
 add_library(hft_gateway STATIC
     order_gateway.cpp
     market_data_publisher.cpp
+    instrument_registry.cpp
+    instrument_router.cpp
 )
 
 target_include_directories(hft_gateway PUBLIC

@@ -34,8 +34,10 @@ static OrderMessage make_order_msg(OrderId id, Side side, OrderType type,
                                    ParticipantId participant = 1) {
     OrderMessage msg{};
     msg.type = MessageType::Add;
+    msg.instrument_id = DEFAULT_INSTRUMENT_ID;
     msg.order.order_id = id;
     msg.order.participant_id = participant;
+    msg.order.instrument_id = DEFAULT_INSTRUMENT_ID;
     msg.order.side = side;
     msg.order.type = type;
     msg.order.time_in_force = TimeInForce::GTC;

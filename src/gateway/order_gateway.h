@@ -42,11 +42,13 @@ struct GatewayResult {
 
 class OrderGateway {
 public:
-    /// @param engine       Matching engine to forward validated orders to.
-    /// @param pool         Memory pool for Order allocation.
-    /// @param event_buffer Nullable — if nullptr, no events are published.
+    /// @param engine        Matching engine to forward validated orders to.
+    /// @param pool          Memory pool for Order allocation.
+    /// @param event_buffer  Nullable — if nullptr, no events are published.
+    /// @param instrument_id Instrument this gateway serves (default: 0).
     OrderGateway(MatchingEngine& engine, MemoryPool<Order>& pool,
-                 EventBuffer* event_buffer) noexcept;
+                 EventBuffer* event_buffer,
+                 InstrumentId instrument_id = DEFAULT_INSTRUMENT_ID) noexcept;
 
     OrderGateway(const OrderGateway&) = delete;
     OrderGateway& operator=(const OrderGateway&) = delete;
@@ -83,6 +85,7 @@ private:
     MatchingEngine& engine_;
     MemoryPool<Order>& pool_;
     EventBuffer* event_buffer_;
+    InstrumentId instrument_id_;
     uint64_t sequence_num_;
     uint64_t orders_processed_;
     uint64_t orders_rejected_;
