@@ -4,12 +4,15 @@
 /// Usage:
 ///   ./replay --input data/btcusdt_l3_sample.csv [--output report.json]
 ///            [--speed max|realtime|2x] [--verbose]
+///            [--analytics] [--analytics-json <path>] [--analytics-csv <path>]
 
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <string>
 
+#include "analytics/analytics_engine.h"
 #include "core/types.h"
 #include "feed/replay_engine.h"
 
@@ -20,11 +23,14 @@ static void print_usage(const char* program) {
         << "Usage: " << program << " --input <file.csv> [options]\n"
         << "\n"
         << "Options:\n"
-        << "  --input  <path>    Input L3 CSV file (required)\n"
-        << "  --output <path>    Output JSON report file\n"
-        << "  --speed  <mode>    Playback speed: max (default), realtime, <N>x\n"
-        << "  --verbose          Print detailed progress\n"
-        << "  --help             Show this help message\n";
+        << "  --input  <path>          Input L3 CSV file (required)\n"
+        << "  --output <path>          Output JSON report file\n"
+        << "  --speed  <mode>          Playback speed: max (default), realtime, <N>x\n"
+        << "  --verbose                Print detailed progress\n"
+        << "  --analytics              Enable analytics and print summary\n"
+        << "  --analytics-json <path>  Write analytics JSON to file\n"
+        << "  --analytics-csv  <path>  Write analytics time-series CSV to file\n"
+        << "  --help                   Show this help message\n";
 }
 
 static void print_price(const char* label, Price price) {
@@ -34,6 +40,9 @@ static void print_price(const char* label, Price price) {
 
 int main(int argc, char* argv[]) {
     ReplayConfig config;
+    bool enable_analytics = false;
+    std::string analytics_json_path;
+    std::string analytics_csv_path;
 
     // Hand-rolled argument parsing
     for (int i = 1; i < argc; ++i) {
@@ -77,6 +86,22 @@ int main(int argc, char* argv[]) {
             }
         } else if (std::strcmp(argv[i], "--verbose") == 0) {
             config.verbose = true;
+        } else if (std::strcmp(argv[i], "--analytics") == 0) {
+            enable_analytics = true;
+        } else if (std::strcmp(argv[i], "--analytics-json") == 0) {
+            if (++i >= argc) {
+                std::cerr << "Error: --analytics-json requires a path argument\n";
+                return 1;
+            }
+            analytics_json_path = argv[i];
+            enable_analytics = true;
+        } else if (std::strcmp(argv[i], "--analytics-csv") == 0) {
+            if (++i >= argc) {
+                std::cerr << "Error: --analytics-csv requires a path argument\n";
+                return 1;
+            }
+            analytics_csv_path = argv[i];
+            enable_analytics = true;
         } else {
             std::cerr << "Error: unknown option: " << argv[i] << "\n";
             print_usage(argv[0]);
@@ -90,10 +115,26 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Analytics requires the publisher to generate events
+    if (enable_analytics) {
+        config.enable_publisher = true;
+    }
+
     // Run replay
     std::cout << "Replaying: " << config.input_path << "\n";
 
     ReplayEngine engine(config);
+
+    // Set up analytics engine if enabled
+    std::unique_ptr<AnalyticsEngine> analytics;
+    if (enable_analytics) {
+        analytics = std::make_unique<AnalyticsEngine>(engine.order_book());
+        engine.register_event_callback(
+            [&analytics](const EventMessage& event) {
+                analytics->on_event(event);
+            });
+    }
+
     ReplayStats stats = engine.run();
 
     if (stats.total_messages == 0) {
@@ -131,6 +172,20 @@ int main(int argc, char* argv[]) {
 
     if (!config.output_path.empty()) {
         std::cout << "\nReport written to: " << config.output_path << "\n";
+    }
+
+    // Analytics output
+    if (analytics) {
+        analytics->print_summary();
+
+        if (!analytics_json_path.empty()) {
+            analytics->write_json(analytics_json_path);
+            std::cout << "\nAnalytics JSON written to: " << analytics_json_path << "\n";
+        }
+        if (!analytics_csv_path.empty()) {
+            analytics->write_csv(analytics_csv_path);
+            std::cout << "Analytics CSV written to: " << analytics_csv_path << "\n";
+        }
     }
 
     return 0;

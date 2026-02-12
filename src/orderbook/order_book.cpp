@@ -193,6 +193,43 @@ Quantity OrderBook::available_quantity(Side side, Price limit_price) const noexc
 }
 
 // ---------------------------------------------------------------------------
+// Depth queries
+// ---------------------------------------------------------------------------
+
+size_t OrderBook::get_bid_depth(DepthEntry* out, size_t max_levels) const noexcept {
+    if (best_bid_idx_ == INVALID_INDEX || max_levels == 0) return 0;
+
+    size_t count = 0;
+    for (size_t i = best_bid_idx_;; --i) {
+        if (!bid_levels_[i].empty()) {
+            out[count].price = bid_levels_[i].price;
+            out[count].quantity = bid_levels_[i].total_quantity;
+            out[count].order_count = bid_levels_[i].order_count;
+            ++count;
+            if (count >= max_levels) break;
+        }
+        if (i == 0) break;
+    }
+    return count;
+}
+
+size_t OrderBook::get_ask_depth(DepthEntry* out, size_t max_levels) const noexcept {
+    if (best_ask_idx_ == INVALID_INDEX || max_levels == 0) return 0;
+
+    size_t count = 0;
+    for (size_t i = best_ask_idx_; i < num_levels_; ++i) {
+        if (!ask_levels_[i].empty()) {
+            out[count].price = ask_levels_[i].price;
+            out[count].quantity = ask_levels_[i].total_quantity;
+            out[count].order_count = ask_levels_[i].order_count;
+            ++count;
+            if (count >= max_levels) break;
+        }
+    }
+    return count;
+}
+
+// ---------------------------------------------------------------------------
 // Best bid/ask maintenance
 // ---------------------------------------------------------------------------
 

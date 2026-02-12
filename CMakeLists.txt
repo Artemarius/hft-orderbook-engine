@@ -19,7 +19,7 @@ add_subdirectory(src)
 
 # Executables
 add_executable(replay src/main/replay_main.cpp)
-target_link_libraries(replay PRIVATE hft_feed)
+target_link_libraries(replay PRIVATE hft_feed hft_analytics)
 apply_cold_path_flags(replay)
 
 # Tests

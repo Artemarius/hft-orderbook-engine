@@ -36,3 +36,8 @@ gtest_discover_tests(test_gateway)
 add_executable(test_l3_replay test_l3_replay.cpp)
 target_link_libraries(test_l3_replay PRIVATE hft_feed GTest::gtest_main)
 gtest_discover_tests(test_l3_replay)
+
+# test_analytics — verifies market microstructure analytics modules
+add_executable(test_analytics test_analytics.cpp)
+target_link_libraries(test_analytics PRIVATE hft_analytics hft_feed GTest::gtest_main)
+gtest_discover_tests(test_analytics)

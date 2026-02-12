@@ -616,13 +616,40 @@ Two outputs:
 
 Use `nlohmann/json` for JSON, raw `ofstream` for CSV.
 
+### 7.2.1 Actual Implementation Architecture
+
+**OrderBook depth API extension** — added `DepthEntry` struct and `get_bid_depth()`/`get_ask_depth()` public const methods to walk flat price arrays from BBO without exposing private internals.
+
+**AnalyticsEngine orchestrator** (`analytics_engine.h/.cpp`):
+- Single callback registered with ReplayEngine via `register_event_callback()`
+- Infers aggressor side via Lee-Ready tick test (`trade.price >= prev_mid` => buyer-initiated)
+- Dispatches every event to all 6 modules
+- Captures `TimeSeriesRow` on each Trade for CSV output
+- `to_json()` aggregates all module JSON, `write_csv()` writes one row per trade
+
+**Module files** (actual names differ slightly from plan):
+| Module | Files | Key detail |
+|---|---|---|
+| SpreadAnalytics | `spread_analytics.h/.cpp` | Pre-trade mid caching via `prev_mid_`; running min/max/mean stats |
+| MicropriceCalculator | `microprice_calculator.h/.cpp` | All arithmetic in `double`; invalid when either side empty |
+| OrderFlowImbalance | `order_flow_imbalance.h/.cpp` | `std::deque` rolling window with running buy/sell sums |
+| RealizedVolatility | `realized_volatility.h/.cpp` | Tick-level (`log(p/p_prev)`) and time-bar (mid at bar boundary) |
+| PriceImpact | `price_impact.h/.cpp` | OLS via Cov/Var running sums; permanent impact via 5-trade lag |
+| DepthProfile | `depth_profile.h/.cpp` | Uses `get_bid_depth()`/`get_ask_depth()`; incremental average depth |
+
+**CLI integration** — `replay_main.cpp` accepts `--analytics`, `--analytics-json <path>`, `--analytics-csv <path>`.
+
 ### 7.3 Phase 7 Deliverables Checklist
 
-- [ ] All 6 analytics implemented and tested
-- [ ] JSON summary report generated after replay
-- [ ] CSV time series generated for plotting
-- [ ] Unit tests with known inputs/outputs for each metric
-- [ ] Analytics run on a separate thread, fed via SPSC buffer (no hot-path impact)
+- [x] All 6 analytics implemented: spread, microprice, order flow imbalance, realized volatility, price impact (Kyle's Lambda), depth profile
+- [x] JSON summary report generated after replay (`--analytics-json <path>`)
+- [x] CSV time series generated for plotting (`--analytics-csv <path>`, one row per trade with 11 columns)
+- [x] Unit tests with known inputs/outputs for each metric (45 new tests, 277 total)
+- [x] Analytics consume events via MarketDataPublisher callback, fed via SPSC buffer (no hot-path impact)
+- [x] OrderBook extended with `get_bid_depth()`/`get_ask_depth()` depth-walking API
+- [x] Lee-Ready tick test for aggressor side inference
+- [x] OLS regression for Kyle's Lambda implemented from scratch (Cov/Var formula, no Eigen)
+- [x] Edge cases tested: empty book, single-sided book, zero-quantity trades, window eviction, large windows
 
 ---
 

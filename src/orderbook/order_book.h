@@ -19,6 +19,13 @@
 
 namespace hft {
 
+/// Snapshot of a single price level for depth queries.
+struct DepthEntry {
+    Price price;
+    Quantity quantity;
+    uint32_t order_count;
+};
+
 struct AddResult {
     bool success;
 };
@@ -87,6 +94,14 @@ public:
     /// Total quantity available on `side` at prices that would cross `limit_price`.
     /// Used by FOK feasibility check. Read-only walk of the flat price array.
     [[nodiscard]] Quantity available_quantity(Side side, Price limit_price) const noexcept;
+
+    /// Fill `out` with up to `max_levels` non-empty bid levels starting from best bid.
+    /// Returns number of levels filled. Bids are ordered best (highest) to worst.
+    [[nodiscard]] size_t get_bid_depth(DepthEntry* out, size_t max_levels) const noexcept;
+
+    /// Fill `out` with up to `max_levels` non-empty ask levels starting from best ask.
+    /// Returns number of levels filled. Asks are ordered best (lowest) to worst.
+    [[nodiscard]] size_t get_ask_depth(DepthEntry* out, size_t max_levels) const noexcept;
 
 private:
     static constexpr size_t INVALID_INDEX = SIZE_MAX;
