@@ -37,6 +37,14 @@ I wanted to understand market microstructure from the ground up — not by readi
 - Order book depth and shape analysis
 - Output: JSON summary + CSV time series
 
+**Python Bindings (pybind11)**
+- `import hft_orderbook` — full access from Python for quant research workflows
+- Replay CSV data and inspect results: `ReplayEngine`, `MultiInstrumentReplayEngine`
+- Read-only order book queries: BBO, spread, mid price, depth snapshots
+- All 6 analytics modules: spread, microprice, imbalance, volatility, price impact, depth
+- Price conversion helpers: fixed-point `int64` <-> `float`
+- Zero-overhead C++ analytics wiring via `register_analytics()` (no Python callback overhead)
+
 **Benchmarking**
 - Nanosecond-precision latency histograms via rdtsc (p50, p90, p99, p99.9, max)
 - Throughput measurement under sustained mixed workload
@@ -96,8 +104,23 @@ cmake --build build
 # Replay historical data with analytics
 ./build/replay --input data/btcusdt_l3_sample.csv --analytics
 
-# Unit tests (322 tests)
+# Unit tests (343 tests)
 cd build && ctest --output-on-failure
+```
+
+### Python Bindings (optional)
+```bash
+# Build with Python bindings (requires Python 3.7+)
+cmake -B build -DBUILD_PYTHON_BINDINGS=ON -DCMAKE_BUILD_TYPE=Release -G Ninja
+cmake --build build
+
+# Verify import
+cd python && python -c "import hft_orderbook; print(hft_orderbook.PRICE_SCALE)"
+
+# Run examples
+python python/examples/simple_replay.py       # Replay + book state
+python python/examples/analytics_demo.py      # Replay + all 6 analytics modules
+python python/examples/multi_instrument.py    # Multi-symbol replay + per-instrument analytics
 ```
 
 ### Automated Benchmarking (Windows)
@@ -112,14 +135,17 @@ src/
   core/        — Order, Trade, PriceLevel, Side/OrderType enums
   orderbook/   — OrderBook, PriceLevelPool, MemoryPool (slab allocator)
   matching/    — MatchingEngine, validation, self-trade prevention
-  gateway/     — OrderGateway (ingestion), MarketDataPublisher
+  gateway/     — OrderGateway (ingestion), MarketDataPublisher, InstrumentRouter
   transport/   — SPSC ring buffer, MPSC queue, binary message format
-  feed/        — L3 data replay from CSV
-  analytics/   — Spread, microprice, imbalance, volatility, impact
+  feed/        — L3 data replay from CSV (single + multi-instrument)
+  analytics/   — Spread, microprice, imbalance, volatility, impact (single + multi-instrument)
   utils/       — High-resolution clock, logging, config
-tests/         — Google Test (per-component)
+python/
+  bindings/    — pybind11 Python bindings (core, orderbook, replay, analytics)
+  examples/    — Example scripts (simple_replay, analytics_demo, multi_instrument)
+tests/         — Google Test (per-component, 343 tests)
 benchmarks/    — Google Benchmark + custom latency profiling
-data/          — Sample L3 order data
+data/          — Sample L3 order data (single + multi-instrument)
 ```
 
 ## Architecture
@@ -179,6 +205,7 @@ graph LR
 | nlohmann/json | Config, analytics output | Cold |
 | spdlog | Logging | Cold |
 | TBB | Thread pool for analytics | Cold |
+| pybind11 | Python bindings (optional) | Cold |
 
 No external dependencies on the hot path.
 

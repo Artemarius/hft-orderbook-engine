@@ -12,6 +12,9 @@ src/
   feed/          — L3 feed parser, single- and multi-instrument replay engines
   analytics/     — Spread, microprice, imbalance, realized vol, impact curves (single + multi-instrument)
   utils/         — Clock (rdtsc-based), logging, config
+python/
+  bindings/      — pybind11 bindings (module.cpp, core/orderbook/replay/analytics bindings)
+  examples/      — Python example scripts (simple_replay, analytics_demo, multi_instrument)
 tests/           — Google Test unit tests for every component
 benchmarks/      — Google Benchmark + custom latency profiling
 data/            — Sample L3 order data (single- and multi-instrument)
@@ -66,6 +69,18 @@ cmake --build build -- -j$(nproc)
 
 # Unit tests
 cd build && ctest --output-on-failure
+
+# Python bindings (requires Python 3.7+)
+cmake -B build -DBUILD_PYTHON_BINDINGS=ON -DCMAKE_BUILD_TYPE=Release -G Ninja
+cmake --build build --target hft_python
+
+# Python smoke test
+cd python && python -c "import hft_orderbook; print(hft_orderbook.PRICE_SCALE)"
+
+# Python examples
+python python/examples/simple_replay.py
+python python/examples/analytics_demo.py
+python python/examples/multi_instrument.py
 ```
 
 ## Dependencies
@@ -78,6 +93,7 @@ cd build && ctest --output-on-failure
 | spdlog | Logging | Cold |
 | TBB | Thread pool for analytics | Cold |
 | Eigen3 | Analytics math (optional) | Cold |
+| pybind11 | Python bindings (optional, `BUILD_PYTHON_BINDINGS=ON`) | Cold |
 
 No external dependencies on the hot path.
 

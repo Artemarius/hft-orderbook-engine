@@ -39,4 +39,13 @@ else()
     message(STATUS "TBB not found — install via 'sudo apt install libtbb-dev' when needed (Phase 7)")
 endif()
 
-FetchContent_MakeAvailable(googletest googlebenchmark spdlog nlohmann_json)
+# pybind11 — Python bindings (cold path only, guarded by option)
+if(BUILD_PYTHON_BINDINGS)
+    FetchContent_Declare(pybind11
+        GIT_REPOSITORY https://github.com/pybind/pybind11.git
+        GIT_TAG        v2.13.6
+    )
+    FetchContent_MakeAvailable(googletest googlebenchmark spdlog nlohmann_json pybind11)
+else()
+    FetchContent_MakeAvailable(googletest googlebenchmark spdlog nlohmann_json)
+endif()

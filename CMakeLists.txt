@@ -14,8 +14,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(cmake/CompilerFlags.cmake)
 include(cmake/Dependencies.cmake)
 
+# Python bindings (off by default)
+option(BUILD_PYTHON_BINDINGS "Build Python bindings via pybind11" OFF)
+
 # Source libraries
 add_subdirectory(src)
+
+# Python bindings subdirectory (before executables so pybind11 is available)
+if(BUILD_PYTHON_BINDINGS)
+    add_subdirectory(python)
+endif()
 
 # Executables
 add_executable(replay src/main/replay_main.cpp)

@@ -21,6 +21,7 @@
 *.so
 *.dylib
 *.dll
+*.pyd
 
 # Fortran module files
 *.mod
@@ -56,6 +57,10 @@ _deps/
 data/*.csv
 !data/btcusdt_l3_sample.csv
 !data/multi_instrument_l3_sample.csv
+
+# Python
+__pycache__/
+*.pyc
 
 # Temporary
 tmp/
