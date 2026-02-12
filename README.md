@@ -123,7 +123,47 @@ data/          — Sample L3 order data
 
 ## Architecture
 
-The hot path (order ingestion → matching → market data output) is strictly separated from the cold path (analytics, logging, configuration):
+```mermaid
+graph LR
+    subgraph "Thread 1 — Hot Path (zero-alloc, lock-free)"
+        FP[L3FeedParser] --> GW[OrderGateway]
+        GW --> ME[MatchingEngine]
+        ME <--> OB[OrderBook]
+        OB <--> MP[MemoryPool<br/>FlatOrderMap]
+        ME --> EB["EventMessage (POD)"]
+    end
+
+    EB --> SPSC["SPSC RingBuffer<br/>── thread boundary ──"]
+
+    subgraph "Thread 2 — Cold Path (STL, readability-first)"
+        SPSC --> MDP[MarketDataPublisher]
+        MDP --> AE[AnalyticsEngine]
+        AE --> S[SpreadAnalytics]
+        AE --> MPC[MicropriceCalc]
+        AE --> OFI[OrderFlowImbalance]
+        AE --> RV[RealizedVolatility]
+        AE --> PI[PriceImpact]
+        AE --> DP[DepthProfile]
+        AE --> OUT["JSON / CSV output"]
+    end
+
+    style FP fill:#2d5016,color:#fff
+    style GW fill:#2d5016,color:#fff
+    style ME fill:#2d5016,color:#fff
+    style OB fill:#2d5016,color:#fff
+    style MP fill:#2d5016,color:#fff
+    style EB fill:#2d5016,color:#fff
+    style SPSC fill:#8b6914,color:#fff
+    style MDP fill:#1a3a5c,color:#fff
+    style AE fill:#1a3a5c,color:#fff
+    style S fill:#1a3a5c,color:#fff
+    style MPC fill:#1a3a5c,color:#fff
+    style OFI fill:#1a3a5c,color:#fff
+    style RV fill:#1a3a5c,color:#fff
+    style PI fill:#1a3a5c,color:#fff
+    style DP fill:#1a3a5c,color:#fff
+    style OUT fill:#1a3a5c,color:#fff
+```
 
 **Hot path constraints:** no heap allocation, no virtual dispatch, no exceptions, no `std::string`, no `std::map`, no `shared_ptr`. Communication between threads via lock-free SPSC ring buffers with cache-line padding.
 

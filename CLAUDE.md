@@ -28,11 +28,13 @@ The hot path (order ingestion → matching → market data output) is strictly s
 - Lock-free SPSC ring buffers for inter-thread communication
 - Fixed-size binary POD messages — no serialization overhead
 - Cache-line padded structures to prevent false sharing
+- Compiled with `/W4 /WX` (MSVC) or `-Wall -Wextra -Wpedantic -Werror` (GCC/Clang) — zero warnings
 
 **Cold path** (`analytics/`, `feed/`, `utils/`, config, I/O):
 - Normal C++17 with STL containers, readability first
 - spdlog for logging, nlohmann/json for output
 - TBB thread pool for analytics computation
+- Also compiled with `/W4 /WX` (MSVC) or `-Wall -Wextra -Wpedantic -Werror` (GCC/Clang) — zero warnings
 
 ## Code Style & Conventions
 
