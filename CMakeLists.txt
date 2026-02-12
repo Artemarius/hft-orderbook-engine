@@ -17,6 +17,11 @@ include(cmake/Dependencies.cmake)
 # Source libraries
 add_subdirectory(src)
 
+# Executables
+add_executable(replay src/main/replay_main.cpp)
+target_link_libraries(replay PRIVATE hft_feed)
+apply_cold_path_flags(replay)
+
 # Tests
 enable_testing()
 add_subdirectory(tests)
