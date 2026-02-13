@@ -9,7 +9,7 @@ src/
   matching/      — MatchingEngine, order validation, self-trade prevention
   gateway/       — OrderGateway, MarketDataPublisher, InstrumentRegistry, InstrumentRouter
   transport/     — SPSC ring buffer, MPSC queue, message serialization
-  feed/          — L3 feed parser, single- and multi-instrument replay engines
+  feed/          — L3 feed parser, single- and multi-instrument replay engines, FIX 4.2 parser/serializer
   analytics/     — Spread, microprice, imbalance, realized vol, impact curves (single + multi-instrument)
   utils/         — Clock (rdtsc-based), logging, config
 python/
@@ -17,7 +17,7 @@ python/
   examples/      — Python example scripts (simple_replay, analytics_demo, multi_instrument)
 tests/           — Google Test unit tests for every component
 benchmarks/      — Google Benchmark + custom latency profiling
-data/            — Sample L3 order data (single- and multi-instrument)
+data/            — Sample L3 order data (single- and multi-instrument), FIX 4.2 sample messages
 ```
 
 The engine supports multiple instruments simultaneously. `OrderBook` and `MatchingEngine` remain single-instrument classes — multi-instrument awareness lives in the `InstrumentRouter` layer, which owns a per-instrument pipeline (book + pool + engine + gateway) and dispatches orders via O(1) flat-array lookup. All instruments share a single `EventBuffer`; the `instrument_id` field in each `EventMessage` header distinguishes them.

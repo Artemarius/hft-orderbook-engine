@@ -56,3 +56,8 @@ gtest_discover_tests(test_multi_instrument_replay)
 add_executable(test_utils test_utils.cpp)
 target_link_libraries(test_utils PRIVATE hft_utils GTest::gtest_main)
 gtest_discover_tests(test_utils)
+
+# test_fix_protocol — verifies FIX 4.2 parser and serializer
+add_executable(test_fix_protocol test_fix_protocol.cpp)
+target_link_libraries(test_fix_protocol PRIVATE hft_feed GTest::gtest_main)
+gtest_discover_tests(test_fix_protocol)

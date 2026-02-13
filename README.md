@@ -45,6 +45,14 @@ I wanted to understand market microstructure from the ground up — not by readi
 - Price conversion helpers: fixed-point `int64` <-> `float`
 - Zero-overhead C++ analytics wiring via `register_analytics()` (no Python callback overhead)
 
+**FIX 4.2 Protocol**
+- Inbound parser: `35=D` New Order Single, `35=F` Cancel Request, `35=G` Cancel/Replace
+- Outbound serializer: `35=8` Execution Reports (all event types)
+- ~20 FIX tags, checksum validation, BodyLength validation
+- SOH and pipe-delimited message support (auto-detected)
+- ClOrdID to OrderId mapping via FNV-1a hash
+- 30 sample FIX messages covering a realistic BTCUSDT trading scenario
+
 **Benchmarking**
 - Nanosecond-precision latency histograms via rdtsc (p50, p90, p99, p99.9, max)
 - Throughput measurement under sustained mixed workload
@@ -104,7 +112,7 @@ cmake --build build
 # Replay historical data with analytics
 ./build/replay --input data/btcusdt_l3_sample.csv --analytics
 
-# Unit tests (343 tests)
+# Unit tests (411 tests)
 cd build && ctest --output-on-failure
 ```
 
@@ -137,15 +145,15 @@ src/
   matching/    — MatchingEngine, validation, self-trade prevention
   gateway/     — OrderGateway (ingestion), MarketDataPublisher, InstrumentRouter
   transport/   — SPSC ring buffer, MPSC queue, binary message format
-  feed/        — L3 data replay from CSV (single + multi-instrument)
+  feed/        — L3 data replay from CSV, FIX 4.2 parser/serializer
   analytics/   — Spread, microprice, imbalance, volatility, impact (single + multi-instrument)
   utils/       — High-resolution clock, logging, config
 python/
   bindings/    — pybind11 Python bindings (core, orderbook, replay, analytics)
   examples/    — Example scripts (simple_replay, analytics_demo, multi_instrument)
-tests/         — Google Test (per-component, 343 tests)
+tests/         — Google Test (per-component, 411 tests)
 benchmarks/    — Google Benchmark + custom latency profiling
-data/          — Sample L3 order data (single + multi-instrument)
+data/          — Sample L3 order data (single + multi-instrument), FIX 4.2 sample messages
 ```
 
 ## Architecture
@@ -153,7 +161,8 @@ data/          — Sample L3 order data (single + multi-instrument)
 ```mermaid
 graph LR
     subgraph "Thread 1 — Hot Path (zero-alloc, lock-free)"
-        FP[L3FeedParser] --> GW[OrderGateway]
+        FIX[FIX 4.2 Parser] --> GW[OrderGateway]
+        FP[L3FeedParser] --> GW
         GW --> ME[MatchingEngine]
         ME <--> OB[OrderBook]
         OB <--> MP[MemoryPool<br/>FlatOrderMap]
@@ -174,6 +183,7 @@ graph LR
         AE --> OUT["JSON / CSV output"]
     end
 
+    style FIX fill:#2d5016,color:#fff
     style FP fill:#2d5016,color:#fff
     style GW fill:#2d5016,color:#fff
     style ME fill:#2d5016,color:#fff

@@ -731,7 +731,7 @@ Or use Compiler Explorer (godbolt.org) for key snippets. Verify no unexpected fu
 
 These are NOT required for the core project but would differentiate further:
 
-- [ ] FIX protocol message parsing (even basic) — shows awareness of real exchange protocols
+- [x] FIX protocol message parsing (even basic) — shows awareness of real exchange protocols; FIX 4.2 parser (35=D/F/G), serializer (35=8 Execution Report), ~20 tags, checksum validation, 30 sample messages, 55+ tests
 - [ ] Multiple instruments — generalize from single to multi-instrument order book
 - [x] Order modify (amend price/quantity) — cancel-and-replace semantics, zero-alloc (reuses pool slot), crossing triggers matching, 32 new tests (322 total)
 - [ ] Python bindings (pybind11) for the analytics — useful for quant researchers
