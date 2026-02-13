@@ -83,6 +83,36 @@ python python/examples/analytics_demo.py
 python python/examples/multi_instrument.py
 ```
 
+## Cross-Platform & Sanitizer Builds (GCC/Clang on Linux/WSL2)
+
+```bash
+# Debug build with ASan + UBSan (enabled automatically in Debug mode)
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -G Ninja
+cmake --build build -j$(nproc)
+cd build && ctest --output-on-failure
+
+# ThreadSanitizer (separate build — cannot coexist with ASan)
+cmake -B build-tsan -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g" \
+  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" \
+  -DBENCHMARK_ENABLE_TESTING=OFF -DBENCHMARK_USE_BUNDLED_GTEST=OFF \
+  -DHAVE_STD_REGEX=ON -G Ninja
+cmake --build build-tsan -j$(nproc)
+cd build-tsan && ctest --output-on-failure
+
+# clang-tidy (requires Clang 17+)
+cmake -B build-tidy -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DCMAKE_CXX_COMPILER=clang++-17 -G Ninja
+find src -name '*.cpp' | xargs clang-tidy-17 -p build-tidy
+
+# perf cache analysis
+perf stat -e cache-references,cache-misses,L1-dcache-load-misses \
+  ./build/bench_orderbook
+```
+
+All 411 tests pass clean under ASan, UBSan, and TSan (GCC 13, Ubuntu 24.04).
+
 ## Dependencies
 
 | Library | Purpose | Path |

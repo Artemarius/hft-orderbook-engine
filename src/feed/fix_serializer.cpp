@@ -240,7 +240,7 @@ char FixSerializer::to_fix_exec_type(EventType type) {
     switch (type) {
         case EventType::OrderAccepted:    return fix::ExecTypeValue::New;
         case EventType::OrderPartialFill: return fix::ExecTypeValue::PartialFill;
-        case EventType::OrderFilled:      return fix::ExecTypeValue::Fill;
+        case EventType::OrderFilled:
         case EventType::Trade:            return fix::ExecTypeValue::Fill;
         case EventType::OrderCancelled:   return fix::ExecTypeValue::Cancelled;
         case EventType::OrderRejected:    return fix::ExecTypeValue::Rejected;
@@ -253,7 +253,7 @@ char FixSerializer::to_fix_ord_status(EventType type) {
     switch (type) {
         case EventType::OrderAccepted:    return fix::OrdStatusValue::New;
         case EventType::OrderPartialFill: return fix::OrdStatusValue::PartialFill;
-        case EventType::OrderFilled:      return fix::OrdStatusValue::Filled;
+        case EventType::OrderFilled:
         case EventType::Trade:            return fix::OrdStatusValue::Filled;
         case EventType::OrderCancelled:   return fix::OrdStatusValue::Cancelled;
         case EventType::OrderRejected:    return fix::OrdStatusValue::Rejected;
@@ -274,7 +274,7 @@ std::string FixSerializer::format_price(Price price) {
     // Format fractional part as 8 digits with leading zeros
     std::string frac_str = std::to_string(frac_part);
     while (frac_str.size() < 8) {
-        frac_str = "0" + frac_str;
+        frac_str.insert(frac_str.begin(), '0');
     }
 
     std::string result;

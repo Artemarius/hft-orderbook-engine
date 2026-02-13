@@ -32,7 +32,7 @@ void RealizedVolatility::on_event(const EventMessage& event,
             // Bar boundary crossed — compute return
             Price mid = book.mid_price();
             if (mid > 0 && bar_start_mid_ > 0.0) {
-                double new_mid = static_cast<double>(mid);
+                auto new_mid = static_cast<double>(mid);
                 double log_ret = std::log(new_mid / bar_start_mid_);
 
                 // Evict oldest if window full
@@ -54,7 +54,7 @@ void RealizedVolatility::on_event(const EventMessage& event,
     // --- Tick-level volatility: only on trades ---
     if (event.type != EventType::Trade) return;
 
-    double trade_price = static_cast<double>(event.data.trade.price);
+    auto trade_price = static_cast<double>(event.data.trade.price);
     if (trade_price <= 0.0) return;
 
     if (prev_trade_price_ > 0.0) {

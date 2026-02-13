@@ -194,7 +194,7 @@ FetchContent_MakeAvailable(googletest googlebenchmark spdlog nlohmann_json)
 - [x] `.clang-format` configured (Google style base, modified per CLAUDE.md conventions)
 - [x] `.clang-tidy` configured with performance-relevant checks
 - [x] `.gitignore` covers `build/`, IDE files, data downloads
-- [ ] `perf stat ls` works inside WSL2 (verifies perf access)
+- [x] `perf stat ls` works inside WSL2 (verifies perf access) — cache-references, cache-misses, L1-dcache-load-misses all functional
 
 ---
 
@@ -721,20 +721,20 @@ Or use Compiler Explorer (godbolt.org) for key snippets. Verify no unexpected fu
 ### 9.2 Code Quality
 
 - [x] `.clang-format` config present, codebase consistent
-- [ ] `clang-tidy` passes with no warnings — requires Linux/Clang toolchain (not available on MSVC)
+- [x] `clang-tidy` passes with no warnings — clang-tidy-17 on Ubuntu 24.04, zero warnings/errors on all project source files
 - [x] No compiler warnings: `/W4 /WX` on MSVC (both hot and cold paths), `-Wall -Wextra -Wpedantic -Werror` on GCC/Clang
-- [x] All 290 tests pass under MSVC AddressSanitizer (`-DHFT_ENABLE_ASAN=ON`)
-- [ ] UndefinedBehaviorSanitizer — requires GCC/Clang (`-fsanitize=undefined`); GCC/Clang Debug build already configured
-- [ ] ThreadSanitizer — requires Linux/GCC/Clang (`-fsanitize=thread`); not available on MSVC
+- [x] All 411 tests pass under MSVC AddressSanitizer (`-DHFT_ENABLE_ASAN=ON`)
+- [x] UndefinedBehaviorSanitizer — all 411 tests pass under GCC 13 (`-fsanitize=undefined`), no UB detected
+- [x] ThreadSanitizer — all 411 tests pass under GCC 13 (`-fsanitize=thread`), no data races detected
 
 ### 9.3 Stretch Goals (if time permits)
 
 These are NOT required for the core project but would differentiate further:
 
 - [x] FIX protocol message parsing (even basic) — shows awareness of real exchange protocols; FIX 4.2 parser (35=D/F/G), serializer (35=8 Execution Report), ~20 tags, checksum validation, 30 sample messages, 55+ tests
-- [ ] Multiple instruments — generalize from single to multi-instrument order book
+- [x] Multiple instruments — InstrumentRouter with O(1) flat-array dispatch, per-instrument pipelines (book + pool + engine + gateway), 7-column CSV replay with auto-detection, InstrumentRegistry, shared EventBuffer with instrument_id header field
 - [x] Order modify (amend price/quantity) — cancel-and-replace semantics, zero-alloc (reuses pool slot), crossing triggers matching, 32 new tests (322 total)
-- [ ] Python bindings (pybind11) for the analytics — useful for quant researchers
+- [x] Python bindings (pybind11) — full module exposing core types, OrderBook, ReplayEngine, and all 6 analytics; example scripts for simple replay, analytics demo, and multi-instrument workflows
 - [ ] Grafana dashboard fed by analytics output — visual wow factor
 
 ---

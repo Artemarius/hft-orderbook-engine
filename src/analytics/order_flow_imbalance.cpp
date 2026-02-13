@@ -13,7 +13,7 @@ void OrderFlowImbalance::on_event(const EventMessage& event,
     if (event.type != EventType::Trade) return;
 
     Quantity qty = event.data.trade.quantity;
-    double qty_d = static_cast<double>(qty);
+    auto qty_d = static_cast<double>(qty);
 
     // Evict oldest if window full
     if (samples_.size() >= window_size_) {

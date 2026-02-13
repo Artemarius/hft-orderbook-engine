@@ -204,9 +204,9 @@ Quantity L3FeedParser::parse_quantity(std::string_view str) {
     if (str.empty()) return 0;
 
     uint64_t result = 0;
-    for (size_t i = 0; i < str.size(); ++i) {
-        if (str[i] < '0' || str[i] > '9') return 0;
-        result = result * 10 + static_cast<uint64_t>(str[i] - '0');
+    for (char c : str) {
+        if (c < '0' || c > '9') return 0;
+        result = result * 10 + static_cast<uint64_t>(c - '0');
     }
     return result;
 }
@@ -294,8 +294,7 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
         return false;
     }
     record.timestamp = 0;
-    for (size_t i = 0; i < fields[ts_idx].size(); ++i) {
-        char c = fields[ts_idx][i];
+    for (char c : fields[ts_idx]) {
         if (c < '0' || c > '9') {
             record.error = "invalid timestamp";
             return false;
@@ -337,8 +336,7 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
                 record.error = "ADD requires order_id";
                 return false;
             }
-            for (size_t i = 0; i < fields[oid_idx].size(); ++i) {
-                char c = fields[oid_idx][i];
+            for (char c : fields[oid_idx]) {
                 if (c < '0' || c > '9') {
                     record.error = "invalid order_id";
                     return false;
@@ -384,8 +382,7 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
                 record.error = "CANCEL requires order_id";
                 return false;
             }
-            for (size_t i = 0; i < fields[oid_idx].size(); ++i) {
-                char c = fields[oid_idx][i];
+            for (char c : fields[oid_idx]) {
                 if (c < '0' || c > '9') {
                     record.error = "invalid order_id";
                     return false;
@@ -437,8 +434,7 @@ bool L3FeedParser::parse_line(std::string_view line, L3Record& record) {
                 record.error = "MODIFY requires order_id";
                 return false;
             }
-            for (size_t i = 0; i < fields[oid_idx].size(); ++i) {
-                char c = fields[oid_idx][i];
+            for (char c : fields[oid_idx]) {
                 if (c < '0' || c > '9') {
                     record.error = "invalid order_id";
                     return false;

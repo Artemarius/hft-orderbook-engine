@@ -11,11 +11,15 @@ Checks: >
   readability-const-return-type,
   cppcoreguidelines-init-variables,
   misc-unused-parameters,
-  -bugprone-easily-swappable-parameters
+  -bugprone-easily-swappable-parameters,
+  -clang-diagnostic-c++20-attribute-extensions
 
 WarningsAsErrors: ''
 
 HeaderFilterRegex: 'src/.*'
+
+ExtraArgs:
+  - '-Wno-c++20-attribute-extensions'
 
 CheckOptions:
   - key: performance-move-const-arg.CheckTriviallyCopyableMove

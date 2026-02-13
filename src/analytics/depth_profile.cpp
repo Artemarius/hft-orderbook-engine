@@ -33,7 +33,7 @@ void DepthProfile::on_event(const EventMessage& /*event*/,
 
     // Update running average depth
     ++snapshot_count_;
-    double n = static_cast<double>(snapshot_count_);
+    auto n = static_cast<double>(snapshot_count_);
 
     for (size_t i = 0; i < max_levels_; ++i) {
         double bid_qty = (i < bid_count) ? static_cast<double>(bid_entries[i].quantity) : 0.0;

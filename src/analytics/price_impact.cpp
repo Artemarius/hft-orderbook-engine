@@ -31,7 +31,7 @@ void PriceImpact::on_event(const EventMessage& event, const OrderBook& book,
                            static_cast<double>(prev_mid_) * 10000.0;
 
     // Signed flow: positive for buys, negative for sells
-    double qty = static_cast<double>(event.data.trade.quantity);
+    auto qty = static_cast<double>(event.data.trade.quantity);
     double signed_flow = (aggressor_side == Side::Buy) ? qty : -qty;
 
     // Evict oldest if window full
@@ -75,7 +75,7 @@ double PriceImpact::kyle_lambda() const {
     size_t n = samples_.size();
     if (n < 10) return std::nan("");
 
-    double n_d = static_cast<double>(n);
+    auto n_d = static_cast<double>(n);
     // Var(X) = E[X^2] - E[X]^2 = (sum_xx / n) - (sum_x / n)^2
     double var_x = (sum_xx_ / n_d) - (sum_x_ / n_d) * (sum_x_ / n_d);
     if (var_x <= 0.0) return std::nan("");

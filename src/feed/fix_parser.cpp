@@ -255,8 +255,7 @@ FixMessage FixParser::parse(std::string_view raw) {
         case MsgType::ExecutionReport:
             // Execution reports are inbound for the serializer path;
             // we just parse them without strict validation here.
-            break;
-
+            // fallthrough
         default:
             break;
     }
@@ -395,7 +394,7 @@ bool FixParser::validate_checksum(std::string_view raw) {
     // Find "10=" preceded by delimiter (or at very start, unlikely)
     std::string tag10_with_delim = std::string(1, delim) + "10=";
     size_t tag10_pos = raw.find(tag10_with_delim);
-    size_t checksum_body_end;
+    size_t checksum_body_end = 0;
 
     if (tag10_pos != std::string_view::npos) {
         checksum_body_end = tag10_pos + 1;  // include the delimiter before 10=
@@ -442,19 +441,13 @@ OrderId FixParser::cl_ord_id_to_order_id(std::string_view cl_ord_id) {
 }
 
 Side FixParser::parse_side(char c) {
-    switch (c) {
-        case SideValue::Buy:  return Side::Buy;
-        case SideValue::Sell: return Side::Sell;
-        default: return Side::Buy;  // default fallback
-    }
+    if (c == SideValue::Sell) return Side::Sell;
+    return Side::Buy;  // default fallback
 }
 
 OrderType FixParser::parse_ord_type(char c) {
-    switch (c) {
-        case OrdTypeValue::Market: return OrderType::Market;
-        case OrdTypeValue::Limit:  return OrderType::Limit;
-        default: return OrderType::Limit;  // default fallback
-    }
+    if (c == OrdTypeValue::Market) return OrderType::Market;
+    return OrderType::Limit;  // default fallback
 }
 
 TimeInForce FixParser::parse_tif(char c) {

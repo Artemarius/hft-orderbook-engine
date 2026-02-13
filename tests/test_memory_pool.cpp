@@ -12,6 +12,10 @@ namespace {
 // ---------------------------------------------------------------------------
 // Heap allocation detector — overrides global operator new to count
 // allocations made AFTER the pool is constructed.
+//
+// Disabled under AddressSanitizer: ASan intercepts operator new/delete with
+// its own allocator, and our raw malloc/free overrides cause
+// alloc-dealloc-mismatch errors.
 // ---------------------------------------------------------------------------
 
 static std::atomic<size_t> g_heap_alloc_count{0};
@@ -19,6 +23,10 @@ static bool g_tracking_enabled = false;
 
 }  // namespace
 }  // namespace hft
+
+#if !defined(__SANITIZE_ADDRESS__) && !defined(HFT_ASAN_ENABLED)
+// Note: __SANITIZE_ADDRESS__ is defined by GCC when -fsanitize=address is used.
+// For Clang, cmake can define HFT_ASAN_ENABLED, or check __has_feature separately.
 
 // Global operator new override — counts allocations when tracking is enabled.
 void* operator new(std::size_t size) {
@@ -34,6 +42,8 @@ void* operator new(std::size_t size) {
 
 void operator delete(void* ptr) noexcept { std::free(ptr); }
 void operator delete(void* ptr, std::size_t) noexcept { std::free(ptr); }
+
+#endif  // !AddressSanitizer
 
 namespace hft {
 namespace {

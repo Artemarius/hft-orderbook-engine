@@ -59,9 +59,7 @@ MatchResult MatchingEngine::submit_order(Order* order) noexcept {
     } else if (order->type == OrderType::Market ||
                order->type == OrderType::IOC) {
         // Market/IOC: cancel unfilled remainder
-        result.status = (result.filled_quantity > 0)
-                            ? MatchStatus::Cancelled
-                            : MatchStatus::Cancelled;
+        result.status = MatchStatus::Cancelled;
         order->status = OrderStatus::Cancelled;
         pool_.deallocate(order);
     } else if (order->type == OrderType::FOK) {
