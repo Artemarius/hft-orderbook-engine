@@ -735,7 +735,7 @@ These are NOT required for the core project but would differentiate further:
 - [x] Multiple instruments — InstrumentRouter with O(1) flat-array dispatch, per-instrument pipelines (book + pool + engine + gateway), 7-column CSV replay with auto-detection, InstrumentRegistry, shared EventBuffer with instrument_id header field
 - [x] Order modify (amend price/quantity) — cancel-and-replace semantics, zero-alloc (reuses pool slot), crossing triggers matching, 32 new tests (322 total)
 - [x] Python bindings (pybind11) — full module exposing core types, OrderBook, ReplayEngine, and all 6 analytics; example scripts for simple replay, analytics demo, and multi-instrument workflows
-- [ ] Grafana dashboard fed by analytics output — visual wow factor
+- [x] Grafana dashboard fed by analytics output — InfluxDB 2.7 + Grafana 11.4 Docker stack, 2 pre-provisioned dashboards (10-panel overview + depth/impact), Python ingestion script, one-command launch (ps1 + sh)
 
 ---
 

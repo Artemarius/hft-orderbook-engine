@@ -57,6 +57,7 @@ _deps/
 data/*.csv
 !data/btcusdt_l3_sample.csv
 !data/multi_instrument_l3_sample.csv
+data/analytics.json
 
 # Python
 __pycache__/

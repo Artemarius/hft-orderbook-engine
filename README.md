@@ -53,6 +53,14 @@ I wanted to understand market microstructure from the ground up — not by readi
 - ClOrdID to OrderId mapping via FNV-1a hash
 - 30 sample FIX messages covering a realistic BTCUSDT trading scenario
 
+**Grafana Dashboard**
+- Docker-based visualization stack: InfluxDB 2.7 + Grafana 11.4
+- Two pre-provisioned dashboards with 21 panels total
+- Overview: trade price/microprice, spread, order flow imbalance, depth imbalance, volatility, aggressor distribution
+- Depth & Impact: Kyle's Lambda, temporary/permanent impact, spread analysis, bid/ask depth profiles
+- One-command launch (`launch.ps1` / `launch.sh`): starts containers, ingests analytics data, opens browser
+- Python ingestion script: CSV time series + JSON aggregates into InfluxDB
+
 **Benchmarking**
 - Nanosecond-precision latency histograms via rdtsc (p50, p90, p99, p99.9, max)
 - Throughput measurement under sustained mixed workload
@@ -131,6 +139,23 @@ python python/examples/analytics_demo.py      # Replay + all 6 analytics modules
 python python/examples/multi_instrument.py    # Multi-symbol replay + per-instrument analytics
 ```
 
+### Grafana Dashboard
+```bash
+# Generate analytics data
+./build/replay --input data/btcusdt_l3_sample.csv --analytics \
+  --analytics-csv data/analytics.csv --analytics-json data/analytics.json
+
+# Launch dashboard (one command — starts Docker, ingests data, opens browser)
+./grafana/scripts/launch.sh          # Linux/WSL2
+.\grafana\scripts\launch.ps1         # Windows PowerShell
+
+# Or combine both steps:
+./grafana/scripts/launch.sh --replay
+
+# Open http://localhost:3000 — no login required
+# Teardown: docker compose -f grafana/docker-compose.yml down -v
+```
+
 ### Automated Benchmarking (Windows)
 ```powershell
 .\scripts\run_benchmarks.ps1
@@ -154,6 +179,7 @@ python/
 tests/         — Google Test (per-component, 411 tests)
 benchmarks/    — Google Benchmark + custom latency profiling
 data/          — Sample L3 order data (single + multi-instrument), FIX 4.2 sample messages
+grafana/       — Grafana + InfluxDB Docker stack, dashboards, ingestion scripts
 ```
 
 ## Architecture
